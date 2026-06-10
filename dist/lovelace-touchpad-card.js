@@ -57,10 +57,14 @@ class TouchpadCard extends HTMLElement {
       button_back: "",
       button_home: "",
       button_menu: "",
+      button_settings: "",
       button_power: "",
       button_volume_up: "",
       button_volume_down: "",
       button_mute: "",
+      button_play: "",
+      button_pause: "",
+      button_play_pause: "",
       button_extra_1: "",
       button_extra_2: "",
       ...config,
@@ -349,7 +353,17 @@ class TouchpadCard extends HTMLElement {
     
     // Button mode: trigger button entities
     if (mode === "button") {
-      const buttonEntity = this.config[`button_${name}`] || this.config[`button_${name.replace('tap', 'ok')}`];
+      // 映射操作名到配置名
+      const nameMapping = {
+        tap: "ok",
+        settings: "settings",
+        play: "play",
+        pause: "pause",
+        play_pause: "play_pause",
+        mute: "mute",
+      };
+      const mappedName = nameMapping[name] || name;
+      const buttonEntity = this.config[`button_${mappedName}`];
       if (!buttonEntity) return null;
       return {
         service: "button.press",
@@ -951,10 +965,14 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "button_back", selector: { entity: { domain: "button" } } },
         { name: "button_home", selector: { entity: { domain: "button" } } },
         { name: "button_menu", selector: { entity: { domain: "button" } } },
+        { name: "button_settings", selector: { entity: { domain: "button" } } },
         { name: "button_power", selector: { entity: { domain: "button" } } },
         { name: "button_volume_up", selector: { entity: { domain: "button" } } },
         { name: "button_volume_down", selector: { entity: { domain: "button" } } },
         { name: "button_mute", selector: { entity: { domain: "button" } } },
+        { name: "button_play", selector: { entity: { domain: "button" } } },
+        { name: "button_pause", selector: { entity: { domain: "button" } } },
+        { name: "button_play_pause", selector: { entity: { domain: "button" } } },
         { name: "button_extra_1", selector: { entity: { domain: "button" } } },
         { name: "button_extra_2", selector: { entity: { domain: "button" } } },
         { name: "tilt_controls", selector: { boolean: {} } },
@@ -1006,10 +1024,14 @@ class TouchpadCardEditor extends HTMLElement {
         button_back: "返回按钮实体",
         button_home: "主页按钮实体",
         button_menu: "菜单按钮实体",
+        button_settings: "设置按钮实体",
         button_power: "电源按钮实体",
         button_volume_up: "音量+按钮实体",
         button_volume_down: "音量-按钮实体",
         button_mute: "静音按钮实体",
+        button_play: "播放按钮实体",
+        button_pause: "暂停按钮实体",
+        button_play_pause: "播放/暂停按钮实体",
         button_extra_1: "额外按钮1实体",
         button_extra_2: "额外按钮2实体",
         tilt_controls: "手机左倾时底部按钮靠左",
