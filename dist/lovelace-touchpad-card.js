@@ -47,8 +47,10 @@ class TouchpadCard extends HTMLElement {
       service_data: {},
       top_extra_1_label: "信息",
       top_extra_1_icon: "mdi:information-outline",
+      top_extra_1_entity: "",
       top_extra_2_label: "语音",
       top_extra_2_icon: "mdi:microphone",
+      top_extra_2_entity: "",
       button_up: "",
       button_down: "",
       button_left: "",
@@ -306,6 +308,22 @@ class TouchpadCard extends HTMLElement {
     const isPoweredOn = this._isPoweredOn(powerState);
     icon.classList.toggle("is-on", isPoweredOn);
     icon.style.color = isPoweredOn ? "var(--warning-color, #fdd835)" : "";
+  }
+
+  _getExtraButtonClass(name) {
+    // 检查顶部额外按钮的状态实体，如果实体状态为 on 则添加 active 类
+    const entityKey = `${name}_entity`;
+    const entityId = this.config[entityKey];
+    if (!entityId) return "header-button";
+    const state = this._hass?.states?.[entityId];
+    if (!state) return "header-button";
+    const stateStr = String(state.state ?? "").toLowerCase();
+    // 如果状态是 on、playing、paused、idle、home 等则认为已激活
+    const activeStates = ["on", "playing", "paused", "idle", "home", "standby"];
+    if (activeStates.includes(stateStr)) {
+      return "header-button active";
+    }
+    return "header-button";
   }
 
   _looksNumeric(value) {
@@ -570,8 +588,8 @@ class TouchpadCard extends HTMLElement {
               </div>
             </div>
             <div class="top-actions">
-              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_1", this.config.top_extra_1_icon || "mdi:information-outline", this.config.top_extra_1_label || "信息", "header-button") : ""}
-              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_2", this.config.top_extra_2_icon || "mdi:microphone", this.config.top_extra_2_label || "语音", "header-button") : ""}
+              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_1", this.config.top_extra_1_icon || "mdi:information-outline", this.config.top_extra_1_label || "信息", this._getExtraButtonClass("extra_1")) : ""}
+              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_2", this.config.top_extra_2_icon || "mdi:microphone", this.config.top_extra_2_label || "语音", this._getExtraButtonClass("extra_2")) : ""}
               ${this._button("settings", "mdi:cog", "设置", "header-button")}
               ${this._button("mute", "mdi:volume-off", "静音", "header-button")}
               ${this._button("power", "mdi:power", "电源", "header-button power-button")}
@@ -722,6 +740,9 @@ class TouchpadCard extends HTMLElement {
           }
           .power-button {
             color: var(--touchpad-danger);
+          }
+          .header-button.active {
+            color: var(--touchpad-success, #4caf50);
           }
           .status-icon.is-on {
             color: var(--warning-color, #fdd835);
@@ -944,9 +965,11 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "show_top_extra_buttons", selector: { boolean: {} } },
         { name: "top_extra_1_label", selector: { text: {} } },
         { name: "top_extra_1_icon", selector: { icon: {} } },
+        { name: "top_extra_1_entity", selector: { entity: {} } },
         { name: "command_extra_1", selector: { text: {} } },
         { name: "top_extra_2_label", selector: { text: {} } },
         { name: "top_extra_2_icon", selector: { icon: {} } },
+        { name: "top_extra_2_entity", selector: { entity: {} } },
         { name: "command_extra_2", selector: { text: {} } },
         { name: "command_back", selector: { text: {} } },
         { name: "command_home", selector: { text: {} } },
@@ -1003,9 +1026,11 @@ class TouchpadCardEditor extends HTMLElement {
         show_top_extra_buttons: "显示顶部额外按键",
         top_extra_1_label: "顶部按钮1名称",
         top_extra_1_icon: "顶部按钮1图标",
+        top_extra_1_entity: "顶部按钮1状态实体",
         command_extra_1: "顶部按钮1命令",
         top_extra_2_label: "顶部按钮2名称",
         top_extra_2_icon: "顶部按钮2图标",
+        top_extra_2_entity: "顶部按钮2状态实体",
         command_extra_2: "顶部按钮2命令",
         command_back: "返回命令",
         command_home: "主页命令",
