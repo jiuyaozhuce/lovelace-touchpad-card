@@ -3,6 +3,5 @@
   "render_readme": true,
   "domains": ["lovelace"],
   "country": [],
-  "homeassistant": "2021.12.0",
-  "persistent_directory": "dist"
+  "homeassistant": "2021.12.0"
 }
