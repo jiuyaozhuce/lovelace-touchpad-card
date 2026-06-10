@@ -1,0 +1,12 @@
+# 敏感信息
+.github-token
+*.token
+*.secret
+
+# Node modules
+node_modules/
+
+# 临时文件
+*.tmp
+*.log
+.DS_Store

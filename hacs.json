@@ -1,0 +1,7 @@
+{
+  "name": "Touchpad Card",
+  "render_readme": true,
+  "domains": ["lovelace"],
+  "country": [],
+  "homeassistant": "2021.12.0"
+}
