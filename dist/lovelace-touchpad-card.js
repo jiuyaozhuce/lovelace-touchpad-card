@@ -1140,7 +1140,7 @@ if (!customElements.get("touchpad-card")) {
 }
 if (!customElements.get("touchpad-card-editor")) {
   customElements.define("touchpad-card-editor", TouchpadCardEditor);
-\}
+}
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "touchpad-card")) {
