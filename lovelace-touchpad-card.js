@@ -352,7 +352,8 @@ class TouchpadCard extends HTMLElement {
 
   _vibrate() {
     if (!this.config.vibrate || typeof navigator === "undefined" || !navigator.vibrate) return;
-    navigator.vibrate(18);
+    // 最强震动：两段式脉冲，比单次长震动感觉更强
+    navigator.vibrate([80, 50, 120]);
   }
 
   _isPoweredOn(stateObj) {
