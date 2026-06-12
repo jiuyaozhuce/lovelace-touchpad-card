@@ -1,3 +1,16 @@
+/**
+ * Touchpad Card - Lovelace Touchpad Card
+ * Version: 1.2.0
+ * 
+ * Changelog:
+ * v1.2.0 (2026-06-12):
+ *   - 修复 button 模式下按钮不起作用的问题
+ *   - 添加了对 command_* 配置的支持
+ *   - 改进了错误提示和调试信息
+ * 
+ * GitHub: https://github.com/jiuyaozhuce/lovelace-touchpad-card
+ */
+
 class TouchpadCard extends HTMLElement {
   static getConfigElement() {
     return document.createElement("touchpad-card-editor");
@@ -921,6 +934,8 @@ class TouchpadCard extends HTMLElement {
   }
 }
 
+
+
 class TouchpadCardEditor extends HTMLElement {
   setConfig(config) {
     this.config = {
@@ -1113,12 +1128,19 @@ class TouchpadCardEditor extends HTMLElement {
   }
 }
 
+
+console.info(
+  `%c Touchpad Card %c v1.2.0 `,
+  `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
+  `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
+);
+
 if (!customElements.get("touchpad-card")) {
   customElements.define("touchpad-card", TouchpadCard);
 }
 if (!customElements.get("touchpad-card-editor")) {
   customElements.define("touchpad-card-editor", TouchpadCardEditor);
-}
+\}
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((card) => card.type === "touchpad-card")) {

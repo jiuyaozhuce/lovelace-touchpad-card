@@ -1,8 +1,23 @@
-# Touchpad Card (触控遥控器卡片)
+# Touchpad Card (触控遥控器卡片) v1.2.0
 
 一个支持触控手势的 Home Assistant 遥控器卡片，支持滑动、点击、长按等操作。
 
 ![Touchpad Card](https://via.placeholder.com/400x200/03a9f4/ffffff?text=Touchpad+Card)
+
+## 最新版本
+
+**v1.2.0** (2026-06-12)
+
+### 🐛 Bug 修复
+- 修复 `button` 模式下按钮不起作用的问题
+- 修复按钮配置读取逻辑
+
+### ✨ 新功能
+- 添加对 `command_*` 配置的支持（用于 `extra_1`, `extra_2` 等自定义按钮）
+- 改进错误提示，当按钮没有配置操作时会显示调试信息
+
+### 📝 完整更新日志
+查看 [GitHub Releases](https://github.com/jiuyaozhuce/lovelace-touchpad-card/releases)
 
 ## 功能特点
 
