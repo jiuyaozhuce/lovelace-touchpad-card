@@ -1,8 +1,18 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.4.2
+ * Version: 1.5.0
  * 
  * Changelog:
+ * v1.5.0 (2026-06-12):
+ *   - 优化反馈图标样式，匹配 Home Assistant 官方设计风格
+ *   - 减小反馈图标尺寸（76px → 56px）
+ *   - 简化反馈图标（arrow-up-bold → arrow-up）
+ *   - 优化反馈动画曲线（使用 MD3 标准缓动函数）
+ *   - 添加微弱的科技感光晕效果
+ *   - 优化按钮悬停和点击效果（添加阴影和位移）
+ *   - 添加触控区域按下效果（is-pressing 类）
+ *   - 改进整体视觉层次和用户体验
+ * 
  * v1.4.2 (2026-06-12):
  *   - 修复语法错误（删除文件末尾非法的反斜杠字符）
  *   - 修复 'Invalid or unexpected token' 错误
@@ -191,6 +201,11 @@ class TouchpadCard extends HTMLElement {
       startedAt: Date.now(),
       moved: false,
     };
+    
+    // 添加按下效果
+    if (this._touchpadArea) {
+      this._touchpadArea.classList.add('is-pressing');
+    }
   };
 
   _handlePointerMove = (event) => {
@@ -213,6 +228,11 @@ class TouchpadCard extends HTMLElement {
     const pointer = this._pointer;
     this._pointer = null;
 
+    // 移除按下效果
+    if (this._touchpadArea) {
+      this._touchpadArea.classList.remove('is-pressing');
+    }
+
     const dx = event.clientX - pointer.x;
     const dy = event.clientY - pointer.y;
     const distance = Math.hypot(dx, dy);
@@ -229,6 +249,10 @@ class TouchpadCard extends HTMLElement {
 
   _handlePointerCancel = () => {
     this._pointer = null;
+    // 移除按下效果
+    if (this._touchpadArea) {
+      this._touchpadArea.classList.remove('is-pressing');
+    }
   };
 
   _preventContextMenu = (event) => {
@@ -799,22 +823,40 @@ class TouchpadCard extends HTMLElement {
           .remote-button:hover,
           .icon-button:hover {
             background: var(--touchpad-press);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            border-color: var(--divider-color);
+            transform: translateY(-1px);
           }
           .remote-button:active,
           .icon-button:active {
-            transform: scale(0.96);
+            transform: scale(0.92) translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: all 80ms ease;
           }
           .touchpad-area {
             position: relative;
             min-height: 270px;
             margin-top: 10px;
             border: 1px solid var(--touchpad-border);
-            border-radius: 12px;
+            border-radius: 16px;
             overflow: hidden;
             background: rgba(245, 247, 250, 0.58);
             background: color-mix(in srgb, var(--touchpad-pad-bg) 68%, transparent);
             backdrop-filter: blur(2px);
             touch-action: none;
+            /* 添加过渡效果 */
+            transition: all 200ms ease;
+            box-shadow: 
+              inset 0 1px 3px rgba(0, 0, 0, 0.04),
+              0 2px 8px rgba(0, 0, 0, 0.08);
+          }
+          /* 触控区域按下效果 */
+          .touchpad-area.is-pressing {
+            background-color: color-mix(in srgb, var(--touchpad-pad-bg) 82%, transparent);
+            box-shadow: 
+              inset 0 3px 8px rgba(0, 0, 0, 0.08),
+              0 1px 4px rgba(0, 0, 0, 0.06);
+            transform: scale(0.99);
           }
           .debug {
             position: absolute;
@@ -830,11 +872,56 @@ class TouchpadCard extends HTMLElement {
             place-items: center;
             pointer-events: none;
             color: var(--primary-color);
-            animation: touchpad-feedback 420ms ease forwards;
+            animation: touchpad-feedback 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          }
+          /* 科技感背景光晕 */
+          .feedback::before {
+            content: '';
+            position: absolute;
+            width: 96px;
+            height: 96px;
+            background: radial-gradient(
+              circle,
+              color-mix(in srgb, var(--primary-color) 12%, transparent) 0%,
+              transparent 70%
+            );
+            border-radius: 50%;
+            animation: feedback-glow 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          }
+          @keyframes feedback-glow {
+            0% {
+              opacity: 0;
+              transform: scale(0.6);
+            }
+            40% {
+              opacity: 1;
+              transform: scale(1.1);
+            }
+            100% {
+              opacity: 0;
+              transform: scale(1.4);
+            }
           }
           .feedback ha-icon {
-            --mdc-icon-size: 76px;
-            filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.16));
+            --mdc-icon-size: 56px;
+            filter: 
+              drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06))
+              drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
+            animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            z-index: 1;
+          }
+          @keyframes feedback-icon-enter {
+            0% {
+              opacity: 0;
+              transform: scale(0.8);
+            }
+            60% {
+              opacity: 1;
+              transform: scale(1.02);
+            }
+            100% {
+              transform: scale(1);
+            }
           }
           .bottom-actions {
             justify-content: space-between;
@@ -863,9 +950,25 @@ class TouchpadCard extends HTMLElement {
             order: 2;
           }
           @keyframes touchpad-feedback {
-            0% { opacity: 0; transform: scale(0.82); }
-            20% { opacity: 1; transform: scale(1); }
-            100% { opacity: 0; transform: scale(1.18); }
+            0% {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+            12% {
+              opacity: 1;
+              transform: scale(1.01);
+            }
+            28% {
+              transform: scale(1);
+            }
+            82% {
+              opacity: 1;
+              transform: scale(1);
+            }
+            100% {
+              opacity: 0;
+              transform: scale(0.96);
+            }
           }
           @keyframes folded-template-marquee {
             0%, 12% { transform: translateX(0); }
@@ -880,6 +983,9 @@ class TouchpadCard extends HTMLElement {
       </ha-card>
     `;
     this._syncPowerStateIcon();
+    
+    // 保存触控区域的引用
+    this._touchpadArea = this.querySelector('.touchpad-area');
   }
 
   _foldedTemplate() {
@@ -907,16 +1013,21 @@ class TouchpadCard extends HTMLElement {
 
   _feedbackIcon(name) {
     const icon = {
-      up: "mdi:arrow-up-bold",
-      down: "mdi:arrow-down-bold",
-      left: "mdi:arrow-left-bold",
-      right: "mdi:arrow-right-bold",
-      tap: "mdi:check-circle",
-      ok: "mdi:check-circle",
-      settings: "mdi:cog",
-      mute: "mdi:volume-off",
+      // 使用更简洁的图标，匹配 HA 官方风格
+      up: "mdi:arrow-up",
+      down: "mdi:arrow-down",
+      left: "mdi:arrow-left",
+      right: "mdi:arrow-right",
+      tap: "mdi:gesture-tap",
+      ok: "mdi:check-circle-outline",
+      settings: "mdi:cog-outline",
+      mute: "mdi:volume-mute",
       power: "mdi:power",
       menu: "mdi:menu",
+      home: "mdi:home-outline",
+      play: "mdi:play-outline",
+      pause: "mdi:pause-outline",
+      play_pause: "mdi:play-pause",
       home: "mdi:home",
       back: "mdi:keyboard-return",
       volume_down: "mdi:volume-medium",
@@ -1134,7 +1245,7 @@ class TouchpadCardEditor extends HTMLElement {
 
 
 console.info(
-  `%c Touchpad Card %c v1.4.2 `,
+  `%c Touchpad Card %c v1.5.0 `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>滑动效果优化预览</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+    }
+
+    h1 {
+      color: white;
+      font-size: 32px;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .subtitle {
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .preview-container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .preview-section {
+      flex: 1;
+      min-width: 420px;
+      max-width: 480px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+
+    .preview-section h2 {
+      font-size: 20px;
+      margin-bottom: 24px;
+      color: #333;
+    }
+
+    /* 触控区域样式 */
+    .touchpad-area {
+      position: relative;
+      min-height: 300px;
+      border: 1px solid #e0e0e0;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(245, 247, 250, 0.58);
+      touch-action: none;
+      box-shadow: 
+        inset 0 1px 3px rgba(0, 0, 0, 0.04),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      transition: all 200ms ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #727272;
+      font-size: 14px;
+    }
+
+    .touchpad-area.is-pressing {
+      background: rgba(230, 235, 245, 0.9);
+      box-shadow: 
+        inset 0 3px 8px rgba(0, 0, 0, 0.08),
+        0 1px 4px rgba(0, 0, 0, 0.06);
+      transform: scale(0.99);
+    }
+
+    /* 反馈图标 */
+    .feedback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      color: #03a9f4;
+      animation: touchpad-feedback-advanced 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .feedback ha-icon {
+      font-size: 80px;
+      filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.18));
+      animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes feedback-icon-enter {
+      0% {
+        opacity: 0;
+        transform: scale(0.5) rotate(-15deg);
+      }
+      70% {
+        transform: scale(1.05) rotate(2deg);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) rotate(0deg);
+      }
+    }
+
+    @keyframes touchpad-feedback-advanced {
+      0% {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      15% {
+        opacity: 1;
+        transform: scale(1.05);
+      }
+      30% {
+        transform: scale(1);
+      }
+      80% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.15) translateY(-12px);
+      }
+    }
+
+    /* 轨迹点 */
+    .track-point {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #03a9f4;
+      border-radius: 50%;
+      opacity: 0.6;
+      pointer-events: none;
+      animation: track-point-fade 800ms ease forwards;
+    }
+
+    @keyframes track-point-fade {
+      0% {
+        opacity: 0.6;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(2.5);
+      }
+    }
+
+    /* 方向箭头 */
+    .direction-arrow {
+      position: absolute;
+      font-size: 48px;
+      color: #03a9f4;
+      opacity: 0.3;
+      pointer-events: none;
+      animation: arrow-pulse 520ms ease infinite;
+    }
+
+    @keyframes arrow-pulse {
+      0%, 100% {
+        opacity: 0.2;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.1);
+      }
+    }
+
+    /* 滑动距离指示器 */
+    .swipe-distance {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0.8;
+      transition: all 200ms ease;
+    }
+
+    .swipe-distance.complete {
+      background: rgba(76, 175, 80, 0.8);
+    }
+
+    /* 操作按钮 */
+    .demo-button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #03a9f4 0%, #0288d1 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(3, 169, 244, 0.3);
+      transition: all 200ms ease;
+      margin: 8px;
+    }
+
+    .demo-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(3, 169, 244, 0.4);
+    }
+
+    .tip {
+      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+      border-left: 4px solid #03a9f4;
+      padding: 16px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+      margin: 20px 0;
+    }
+
+    .feature-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 14px;
+      color: #333;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-list li::before {
+      content: "✅";
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 滑动效果优化预览</h1>
+  <p class="subtitle">反馈动画增强 + 滑动轨迹 + 方向箭头 + 距离可视化</p>
+
+  <div class="preview-container">
+    <div class="preview-section">
+      <h2>✨ 优化后的滑动效果</h2>
+      <div class="feature-list">
+        <li>反馈图标动画增强（流畅入场）</li>
+        <li>触控区域按下效果</li>
+        <li>滑动轨迹显示（可选）</li>
+        <li>方向箭头引导（可选）</li>
+        <li>滑动距离可视化（可选）</li>
+      </div>
+      
+      <div class="touchpad-area" id="touchpadArea">
+        点击或滑动此处测试优化效果
+      </div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="demo-button" onclick="triggerFeedback('up')">测试向上滑动</button>
+        <button class="demo-button" onclick="triggerFeedback('right')">测试向右滑动</button>
+      </div>
+
+      <div class="tip" style="margin-top: 24px;">
+        <strong>💡 使用说明：</strong>
+        <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+          <li>点击上方按钮测试反馈动画</li>
+          <li>在触控区域滑动查看轨迹效果</li>
+          <li>勾选下方选项启用不同优化</li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <label style="display: block; margin: 8px 0;">
+          <input type="checkbox" id="showTrack" checked> 显示滑动轨迹
+        </label>
+        <label style="display: block; margin: 8px 0;">
+          <input type="checkbox" id="showArrow" checked> 显示方向箭头
+        </label>
+        <label style="display: block; margin: 8px 0;">
+          <input type="checkbox" id="showDistance" checked> 显示滑动距离
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const touchpadArea = document.getElementById('touchpadArea');
+    let touchStart = null;
+    let trackPoints = [];
+
+    // 触控开始
+    touchpadArea.addEventListener('touchstart', handleTouchStart);
+    touchpadArea.addEventListener('mousedown', handleTouchStart);
+
+    // 触控移动
+    touchpadArea.addEventListener('touchmove', handleTouchMove);
+    touchpadArea.addEventListener('mousemove', handleTouchMove);
+
+    // 触控结束
+    touchpadArea.addEventListener('touchend', handleTouchEnd);
+    touchpadArea.addEventListener('mouseup', handleTouchEnd);
+    touchpadArea.addEventListener('mouseleave', handleTouchEnd);
+
+    function handleTouchStart(e) {
+      e.preventDefault();
+      const pos = getPosition(e);
+      touchStart = { x: pos.x, y: pos.y, time: Date.now() };
+      touchpadArea.classList.add('is-pressing');
+    }
+
+    function handleTouchMove(e) {
+      if (!touchStart) return;
+      e.preventDefault();
+      
+      const pos = getPosition(e);
+      const dx = pos.x - touchStart.x;
+      const dy = pos.y - touchStart.y;
+      
+      // 添加轨迹点
+      if (document.getElementById('showTrack').checked) {
+        addTrackPoint(pos.x, pos.y);
+      }
+      
+      // 更新滑动距离
+      if (document.getElementById('showDistance').checked) {
+        updateSwipeDistance(dx, dy);
+      }
+    }
+
+    function handleTouchEnd(e) {
+      if (!touchStart) return;
+      
+      const pos = getPosition(e);
+      const dx = pos.x - touchStart.x;
+      const dy = pos.y - touchStart.y;
+      
+      // 判断滑动方向
+      let direction = 'tap';
+      if (Math.abs(dx) > Math.abs(dy)) {
+        direction = dx > 0 ? 'right' : 'left';
+      } else {
+        direction = dy > 0 ? 'down' : 'up';
+      }
+      
+      // 显示反馈
+      triggerFeedback(direction);
+      
+      touchpadArea.classList.remove('is-pressing');
+      touchStart = null;
+      
+      // 清除距离指示器
+      const distance = touchpadArea.querySelector('.swipe-distance');
+      if (distance) distance.remove();
+    }
+
+    function getPosition(e) {
+      if (e.touches && e.touches.length > 0) {
+        return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+      return { x: e.clientX, y: e.clientY };
+    }
+
+    function addTrackPoint(x, y) {
+      const rect = touchpadArea.getBoundingClientRect();
+      const point = document.createElement('div');
+      point.className = 'track-point';
+      point.style.left = (x - rect.left - 4) + 'px';
+      point.style.top = (y - rect.top - 4) + 'px';
+      touchpadArea.appendChild(point);
+      setTimeout(() => point.remove(), 800);
+    }
+
+    function updateSwipeDistance(dx, dy) {
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const threshold = 36;
+      const percentage = Math.min((distance / threshold) * 100, 100);
+      
+      let indicator = touchpadArea.querySelector('.swipe-distance');
+      if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.className = 'swipe-distance';
+        touchpadArea.appendChild(indicator);
+      }
+      
+      indicator.textContent = `${Math.round(percentage)}%`;
+      indicator.classList.toggle('complete', percentage >= 100);
+    }
+
+    function triggerFeedback(direction) {
+      // 移除旧的反馈
+      const oldFeedback = touchpadArea.querySelector('.feedback');
+      if (oldFeedback) oldFeedback.remove();
+      
+      // 创建新的反馈
+      const feedback = document.createElement('div');
+      feedback.className = 'feedback';
+      feedback.innerHTML = `<ha-icon>⬆️</ha-icon>`; // 简化示例
+      touchpadArea.appendChild(feedback);
+      
+      // 显示方向箭头
+      if (document.getElementById('showArrow').checked) {
+        showDirectionArrow(direction);
+      }
+      
+      // 520ms 后移除
+      setTimeout(() => {
+        feedback.remove();
+        const arrow = touchpadArea.querySelector('.direction-arrow');
+        if (arrow) arrow.remove();
+      }, 620);
+    }
+
+    function showDirectionArrow(direction) {
+      const arrow = document.createElement('div');
+      arrow.className = 'direction-arrow';
+      
+      const arrows = {
+        up: '↑',
+        down: '↓',
+        left: '←',
+        right: '→',
+      };
+      
+      arrow.textContent = arrows[direction] || '';
+      
+      // 定位
+      switch(direction) {
+        case 'up':
+          arrow.style.top = '20px';
+          arrow.style.left = '50%';
+          arrow.style.transform = 'translateX(-50%)';
+          break;
+        case 'down':
+          arrow.style.bottom = '20px';
+          arrow.style.left = '50%';
+          arrow.style.transform = 'translateX(-50%)';
+          break;
+        case 'left':
+          arrow.style.left = '20px';
+          arrow.style.top = '50%';
+          arrow.style.transform = 'translateY(-50%)';
+          break;
+        case 'right':
+          arrow.style.right = '20px';
+          arrow.style.top = '50%';
+          arrow.style.transform = 'translateY(-50%)';
+          break;
+      }
+      
+      touchpadArea.appendChild(arrow);
+    }
+  </script>
+</body>
+</html>

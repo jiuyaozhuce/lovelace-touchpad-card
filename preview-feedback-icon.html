@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反馈图标风格优化预览</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+    }
+
+    h1 {
+      color: #212121;
+      font-size: 28px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #727272;
+      font-size: 16px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .preview-container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .preview-section {
+      flex: 1;
+      min-width: 420px;
+      max-width: 520px;
+      background: white;
+      padding: 32px;
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .preview-section h2 {
+      font-size: 20px;
+      margin-bottom: 24px;
+      color: #333;
+      border-bottom: 2px solid #03a9f4;
+      padding-bottom: 8px;
+    }
+
+    /* 模拟触控区域 */
+    .touchpad-area {
+      position: relative;
+      min-height: 320px;
+      border: 1px solid #e0e0e0;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(245, 247, 250, 0.58);
+      touch-action: none;
+      box-shadow: 
+        inset 0 1px 3px rgba(0, 0, 0, 0.04),
+        0 2px 8px rgba(0, 0, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #727272;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* 当前反馈样式（未优化） */
+    .feedback-current {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      color: #03a9f4;
+      animation: feedback-current 420ms ease forwards;
+    }
+
+    .feedback-current ha-icon {
+      font-size: 80px;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.16));
+    }
+
+    @keyframes feedback-current {
+      0% { opacity: 0; transform: scale(0.82); }
+      20% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.18); }
+    }
+
+    /* 优化后反馈样式 - 匹配 HA 风格 */
+    .feedback-optimized {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      animation: feedback-optimized 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    /* 科技感背景光晕 */
+    .feedback-optimized::before {
+      content: '';
+      position: absolute;
+      width: 96px;
+      height: 96px;
+      background: radial-gradient(
+        circle,
+        color-mix(in srgb, #03a9f4 12%, transparent) 0%,
+        transparent 70%
+      );
+      border-radius: 50%;
+      animation: feedback-glow 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    @keyframes feedback-glow {
+      0% {
+        opacity: 0;
+        transform: scale(0.6);
+      }
+      40% {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.4);
+      }
+    }
+
+    .feedback-optimized ha-icon {
+      font-size: 56px;
+      color: #03a9f4;
+      filter: 
+        drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06))
+        drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
+      animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      z-index: 1;
+    }
+
+    @keyframes feedback-icon-enter {
+      0% {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+      60% {
+        opacity: 1;
+        transform: scale(1.02);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @keyframes feedback-optimized {
+      0% {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      12% {
+        opacity: 1;
+        transform: scale(1.01);
+      }
+      28% {
+        transform: scale(1);
+      }
+      82% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+    }
+
+    /* 按钮样式 */
+    .demo-button {
+      padding: 12px 24px;
+      background: #03a9f4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 2px 4px rgba(3, 169, 244, 0.3);
+      transition: all 200ms ease;
+      margin: 8px;
+    }
+
+    .demo-button:hover {
+      background: #0288d1;
+      box-shadow: 0 4px 8px rgba(3, 169, 244, 0.4);
+    }
+
+    .tip {
+      background: #e3f2fd;
+      border-left: 4px solid #03a9f4;
+      padding: 16px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 14px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .comparison-table th {
+      background: #03a9f4;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .comparison-table td {
+      font-size: 13px;
+      color: #333;
+    }
+
+    .improvement {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    .icon-demo {
+      display: flex;
+      gap: 16px;
+      margin: 20px 0;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .icon-demo ha-icon {
+      font-size: 48px;
+      color: #03a9f4;
+    }
+
+    .icon-label {
+      font-size: 12px;
+      color: #727272;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 反馈图标风格优化预览</h1>
+  <p class="subtitle">优化前 vs 优化后 - 匹配 Home Assistant 官方风格</p>
+
+  <div class="preview-container">
+    <!-- 当前样式 -->
+    <div class="preview-section">
+      <h2>❌ 当前样式（风格不搭）</h2>
+      <div class="tip">
+        <strong>⚠️ 问题：</strong>
+        <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+          <li>图标太大（80px）</li>
+          <li>图标样式太粗（arrow-up-bold）</li>
+          <li>阴影太重，不够细腻</li>
+          <li>动画不够流畅</li>
+          <li>缺乏科技感，风格不搭</li>
+        </ul>
+      </div>
+      
+      <div class="touchpad-area" id="areaCurrent">
+        点击按钮查看当前效果
+        <div class="feedback-current" id="feedbackCurrent" style="display: none;">
+          <ha-icon>⬆️</ha-icon>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="demo-button" onclick="showFeedback('current')">测试当前效果</button>
+      </div>
+
+      <div class="icon-demo">
+        <div>
+          <ha-icon>⬆️</ha-icon>
+          <div class="icon-label">arrow-up-bold</div>
+        </div>
+        <div>
+          <ha-icon>⬆️</ha-icon>
+          <div class="icon-label">80px</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 优化后样式 -->
+    <div class="preview-section">
+      <h2>✅ 优化后样式（匹配 HA 官方风格）</h2>
+      <div class="tip">
+        <strong>✅ 优化：</strong>
+        <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+          <li>图标尺寸减小（56px）</li>
+          <li>图标样式简化（arrow-up）</li>
+          <li>阴影更细腻，符合 MD3</li>
+          <li>动画曲线优化，更流畅</li>
+          <li>添加微弱光晕，提升科技感</li>
+        </ul>
+      </div>
+      
+      <div class="touchpad-area" id="areaOptimized">
+        点击按钮查看优化效果
+        <div class="feedback-optimized" id="feedbackOptimized" style="display: none;">
+          <ha-icon>⬆️</ha-icon>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button class="demo-button" onclick="showFeedback('optimized')">测试优化效果</button>
+      </div>
+
+      <div class="icon-demo">
+        <div>
+          <ha-icon style="font-size: 40px;">⬆️</ha-icon>
+          <div class="icon-label">arrow-up</div>
+        </div>
+        <div>
+          <ha-icon style="font-size: 40px;">⬆️</ha-icon>
+          <div class="icon-label">56px</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: white; padding: 32px; border-radius: 16px; max-width: 1080px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+    <h2 style="font-size: 24px; margin-bottom: 20px; color: #333;">📊 优化效果对比</h2>
+    
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>优化项目</th>
+          <th>当前样式</th>
+          <th>优化后样式</th>
+          <th>改进效果</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>图标尺寸</strong></td>
+          <td>80px（太大）</td>
+          <td>56px（适中）</td>
+          <td class="improvement">✅ 更平衡、更精致</td>
+        </tr>
+        <tr>
+          <td><strong>图标样式</strong></td>
+          <td>arrow-up-bold（太粗）</td>
+          <td>arrow-up（简洁）</td>
+          <td class="improvement">✅ 更符合 HA 风格</td>
+        </tr>
+        <tr>
+          <td><strong>阴影效果</strong></td>
+          <td>重阴影</td>
+          <td>轻阴影（MD3 风格）</td>
+          <td class="improvement">✅ 更细腻、更高级</td>
+        </tr>
+        <tr>
+          <td><strong>动画曲线</strong></td>
+          <td>简单 ease</td>
+          <td>cubic-bezier（MD3）</td>
+          <td class="improvement">✅ 更流畅、更自然</td>
+        </tr>
+        <tr>
+          <td><strong>科技感</strong></td>
+          <td>❌ 无</td>
+          <td>✅ 微弱光晕</td>
+          <td class="improvement">✅ 提升、不花哨</td>
+        </tr>
+        <tr>
+          <td><strong>一致性</strong></td>
+          <td>❌ 风格不搭</td>
+          <td>✅ 匹配 HA 官方</td>
+          <td class="improvement">✅ 大幅提升</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tip" style="max-width: 1080px; background: #e8f5e9; border-left-color: #4caf50;">
+    <strong>💡 优化说明：</strong>
+    <ul style="margin-top: 8px; padding-left: 20px; line-height: 1.8;">
+      <li><strong>减小图标尺寸</strong>：从 80px 减小到 56px，更精致，更符合 HA 的设计语言</li>
+      <li><strong>简化图标样式</strong>：使用 <code>arrow-up</code> 代替 <code>arrow-up-bold</code>，更简洁</li>
+      <li><strong>优化动画曲线</strong>：使用 Material Design 3 标准的缓动函数，更流畅</li>
+      <li><strong>添加微弱光晕</strong>：提升科技感，但保持克制，不花哨</li>
+      <li><strong>暗色主题优化</strong>：暗色主题下自动调整阴影和光晕效果</li>
+    </ul>
+  </div>
+
+  <script>
+    function showFeedback(type) {
+      const feedback = document.getElementById(type === 'current' ? 'feedbackCurrent' : 'feedbackOptimized');
+      
+      // 移除旧的
+      feedback.style.display = 'none';
+      feedback.offsetHeight; // 触发重排
+      
+      // 显示新的
+      feedback.style.display = 'grid';
+      
+      // 动画结束后隐藏
+      setTimeout(() => {
+        feedback.style.display = 'none';
+      }, type === 'current' ? 420 : 620);
+    }
+  </script>
+</body>
+</html>
