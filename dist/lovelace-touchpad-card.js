@@ -226,12 +226,44 @@ class TouchpadCard extends HTMLElement {
     const aliases = {
       tap: "ok",
     };
-    const action = this.config[name]
-      || this.config[aliases[name]]
-      || this._defaultAction(name);
+    
+    // 构建 action
+    let action = null;
+    
+    // 优先查找 command_${name} 配置（支持 extra_1, extra_2 等自定义按钮）
+    const commandConfig = this.config[`command_${name}`];
+    if (commandConfig && typeof commandConfig === "object" && Object.keys(commandConfig).length > 0) {
+      action = commandConfig;
+    }
+    
+    // 在 button 模式下，查找 button_${name} 配置
+    if (!action && this.config.control_mode === "button") {
+      const buttonConfig = this.config[`button_${name}`];
+      if (buttonConfig && typeof buttonConfig === "string" && buttonConfig.trim()) {
+        // 如果配置是字符串（按钮实体 ID），转换为 action 对象
+        action = {
+          service: "button.press",
+          target: { entity_id: buttonConfig.trim() },
+        };
+      } else if (buttonConfig && typeof buttonConfig === "object") {
+        action = buttonConfig;
+      }
+    }
+    
+    // 如果找不到，按原来的逻辑查找
+    if (!action) {
+      action = this.config[name]
+        || this.config[aliases[name]]
+        || this._defaultAction(name);
+    }
+    
     this._showFeedback(name, detail.direction);
     this._vibrate();
-    if (!action) return;
+    if (!action) {
+      this._debug = `No action configured for: ${name}`;
+      this.render(true);
+      return;
+    }
 
     try {
       await this._callAction(action);
