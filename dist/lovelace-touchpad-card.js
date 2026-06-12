@@ -1,8 +1,12 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.4.1
+ * Version: 1.4.2
  * 
  * Changelog:
+ * v1.4.2 (2026-06-12):
+ *   - 修复语法错误（删除文件末尾非法的反斜杠字符）
+ *   - 修复 'Invalid or unexpected token' 错误
+ * 
  * v1.4.1 (2026-06-12):
  *   - 修复 button 模式下按钮不起作用的问题
  *   - 添加了对 command_* 配置的支持
@@ -1130,7 +1134,7 @@ class TouchpadCardEditor extends HTMLElement {
 
 
 console.info(
-  `%c Touchpad Card %c v1.4.1 `,
+  `%c Touchpad Card %c v1.4.2 `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );

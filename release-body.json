@@ -1,0 +1,8 @@
+{
+  "tag_name": "v1.4.1",
+  "target_commitish": "main",
+  "name": "v1.4.1 - 修复 button 模式按钮问题",
+  "body": "## 🐛 Bug 修复\n- **修复 `button` 模式下按钮不起作用的问题** ⭐\n  - 现在能正确读取 `button_*` 配置（如 `button_up`, `button_down` 等）\n  - 修复了按钮动作触发的逻辑错误\n\n- 改进错误处理，当按钮没有配置操作时会显示明确的调试信息\n\n## ✨ 新功能\n- **添加对 `command_*` 配置的支持**\n  - 现在可以为 `extra_1`, `extra_2` 等自定义按钮配置复杂的服务调用\n  - 示例：`command_extra_1` 可以配置为完整的服务调用对象\n\n- **改进调试体验**\n  - 启用 `debug: true` 后，卡片会显示详细的操作信息\n  - 方便排查配置问题\n\n## 🔧 升级说明\n1. 通过 HACS 更新或手动下载最新文件\n2. 清除浏览器缓存并强制刷新\n3. 验证版本：打开控制台应显示 \"Touchpad Card v1.4.1\"\n\n## ⚠️ 注意事项\n- 更新后务必清除浏览器缓存\n- 检查 `button_*` 配置是否正确\n- 遇到问题请启用 `debug: true` 查看错误信息\n\n---\n\n**完整提交历史**: https://github.com/jiuyaozhuce/lovelace-touchpad-card/commits/main",
+  "draft": false,
+  "prerelease": false
+}
