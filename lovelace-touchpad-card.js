@@ -1333,7 +1333,8 @@ class TouchpadCard extends HTMLElement {
           /* ---------- 底部三键 ---------- */
           .bottom-controls {
             display: grid;
-            grid-template-columns: 1fr 2.6fr 1fr;
+            /* v1.7.6: 三键等宽（返回键由胶囊改正圆后，不再需要 2.6fr 宽中间列） */
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             align-items: center;
             justify-items: center;
             gap: clamp(10px, 3%, 28px);
@@ -1341,7 +1342,7 @@ class TouchpadCard extends HTMLElement {
           }
           .bottom-controls .circle-btn {
             width: 100%;
-            max-width: 96px;
+            max-width: 64px;
             aspect-ratio: 1 / 1;
           }
           .bottom-controls.dock-left .nav-home {
@@ -1797,7 +1798,7 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
-const CARD_VERSION = "1.7.5";
+const CARD_VERSION = "1.7.6";
 
 console.info(
   `%c Touchpad Card %c v${CARD_VERSION} `,
