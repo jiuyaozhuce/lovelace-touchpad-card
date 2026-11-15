@@ -1,6 +1,6 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.7.0
+ * Version: 1.7.1
  * 
  * Changelog:
  * v1.7.0 (2026-11-15):
@@ -89,6 +89,7 @@ class TouchpadCard extends HTMLElement {
       collapsed: true,
       appearance: "auto",
       layout: "auto",
+      block_view_swipe: true,
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -155,6 +156,29 @@ class TouchpadCard extends HTMLElement {
     if (this._connected) return;
     this._connected = true;
     this._lastRenderKey = "";
+    // v1.7.1: 触控板的横向手势不能冒泡到 HA 的「左右滑动切换视图」。
+    // 卡片只处理 pointer 事件，而 HA / Companion 的滑动导航监听的是 touch / mouse 事件，
+    // 两套事件独立派发，所以必须在卡片层再拦一层。
+    // 这些监听器注册在卡片自身（bubble 阶段）且早于下面的 pointer handlers：
+    // stopPropagation 只阻止继续向祖先冒泡，不影响同一元素上的其它监听器。
+    this._gestureEvents = [
+      "touchstart", "touchmove", "touchend", "touchcancel",
+      "mousedown", "mousemove", "mouseup",
+      "pointerdown", "pointermove", "pointerup", "pointercancel",
+    ];
+    this._gestureEvents.forEach((type) => {
+      this.addEventListener(type, this._blockGestureLeak, { passive: false });
+    });
+    // 兜底：部分实现把 touch 监听器挂在 window / document 的捕获阶段，卡片内部
+    // 的 stopPropagation 来不及。window 捕获阶段一定早于 document 捕获 / hui-root，
+    // 且卡片自身只用 pointer 事件，因此在这里截断 touch/mouse 不会影响滑动与点击。
+    this._captureGestureEvents = [
+      "touchstart", "touchmove", "touchend", "touchcancel",
+      "mousedown", "mousemove", "mouseup",
+    ];
+    this._captureGestureEvents.forEach((type) => {
+      window.addEventListener(type, this._blockGestureLeakCapture, { capture: true, passive: false });
+    });
     this.addEventListener("click", this._handleClick);
     this.addEventListener("pointerdown", this._handlePointerDown);
     this.addEventListener("pointermove", this._handlePointerMove);
@@ -176,6 +200,10 @@ class TouchpadCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    (this._gestureEvents || []).forEach((type) =>
+      this.removeEventListener(type, this._blockGestureLeak));
+    (this._captureGestureEvents || []).forEach((type) =>
+      window.removeEventListener(type, this._blockGestureLeakCapture, true));
     this.removeEventListener("click", this._handleClick);
     this.removeEventListener("pointerdown", this._handlePointerDown);
     this.removeEventListener("pointermove", this._handlePointerMove);
@@ -323,6 +351,47 @@ class TouchpadCard extends HTMLElement {
 
   _preventContextMenu = (event) => {
     if (event.target.closest(".touchpad-area")) event.preventDefault();
+  };
+
+  _isInsideCard(event) {
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    if (path.includes(this)) return true;
+    const target = event.target;
+    return target instanceof Element && this.contains(target);
+  }
+
+  _isTouchpadEvent(event) {
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+    for (const node of path) {
+      if (node === this) break;
+      if (node instanceof Element && node.classList && node.classList.contains("touchpad-area")) {
+        return true;
+      }
+    }
+    const target = event.target;
+    return target instanceof Element &&
+      Boolean(target.closest(".touchpad-area")) && this.contains(target);
+  }
+
+  // 卡片层：截断冒泡，让 HA 的视图滑动导航收不到触控板手势。
+  _blockGestureLeak = (event) => {
+    if (this.config.block_view_swipe === false) return;
+    if (!this._isInsideCard(event)) return;
+    const inPad = this._isTouchpadEvent(event);
+    // 按钮 / 顶栏区域不碰 mouse 事件，避免影响 HA 的点击与长按逻辑。
+    if (event.type.startsWith("mouse") && !inPad) return;
+    // 触控板内阻止默认滚动、边缘回弹与合成 click；触控板内没有按钮，
+    // 「轻点确定」由 pointerup 触发，不依赖 click。
+    if (inPad && event.cancelable) event.preventDefault();
+    event.stopPropagation();
+  };
+
+  // 顶层兜底：window 捕获阶段，早于 document / hui-root 上的监听器。
+  _blockGestureLeakCapture = (event) => {
+    if (this.config.block_view_swipe === false) return;
+    if (!this._isInsideCard(event) || !this._isTouchpadEvent(event)) return;
+    if (event.cancelable) event.preventDefault();
+    event.stopImmediatePropagation();
   };
 
   _handleTap() {
@@ -1100,6 +1169,9 @@ class TouchpadCard extends HTMLElement {
             background: var(--tc-pad);
             overflow: hidden;
             touch-action: none;
+            overscroll-behavior: contain;
+            -webkit-user-select: none;
+            user-select: none;
             transition: transform 200ms ease, filter 200ms ease, box-shadow 200ms ease;
             box-shadow: var(--tc-shadow-pad);
           }
@@ -1528,6 +1600,7 @@ class TouchpadCardEditor extends HTMLElement {
       collapsed: true,
       appearance: "auto",
       layout: "auto",
+      block_view_swipe: true,
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -1579,8 +1652,9 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "layout", selector: { select: { options: [
           { value: "auto", label: "自动（阔屏三栏 / 普通手机竖版，默认）" },
           { value: "portrait", label: "强制竖版（参考图布局）" },
-          { value: "wide", label: "强制三栏宽屏布局" },
+        { name: "wide", label: "强制三栏宽屏布局" },
         ] } } },
+        { name: "block_view_swipe", selector: { boolean: {} } },
         { name: "appearance", selector: { select: { options: [
           { value: "auto", label: "跟随 HA 主题（默认）" },
           { value: "dark", label: "强制深色遥控器" },

@@ -1,8 +1,8 @@
-# Touchpad Card（触控遥控器卡片）v1.7.0
+# Touchpad Card（触控遥控器卡片）v1.7.1
 
-一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：大圆按钮、中央大触控板；**v1.6.1 起外观默认跟随 HA 明暗主题**；**v1.7.0 起新增阔屏 / 矮屏三栏布局**，专为华为 Pura X Max 这类「宽而矮」的屏幕设计，底部按键无需下滑即可触达。
+一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：大圆按钮、中央大触控板；**v1.6.1 起外观默认跟随 HA 明暗主题**；**v1.7.0 起新增阔屏 / 矮屏三栏布局**，专为华为 Pura X Max 这类「宽而矮」的屏幕设计；**v1.7.1 起隔离触控板手势**，左右滑动不再误触 HA 的仪表盘视图切换。
 
-> 仓库内的 `preview-v1.7.0.html` 是单文件自包含对比页，直接打开即可看到 6 张按真实视口尺寸实测的截图（含旧版对照与量化检测数据）。
+> 仓库内的 `preview-v1.7.0.html` 是单文件自包含对比页（6 张真实视口实测截图与量化数据）；`gesture-v1.7.1.html` 是手势冒泡回归验证页，打开即可看到 13 项实时检测结果。
 
 ## 界面布局
 
@@ -52,6 +52,7 @@
 - 🔧 四种控制模式：`remote`（红外）、`androidtv_remote`、`adb`、`button`
 - 🎨 **默认跟随 HA 明暗主题**（明暗切换即时生效），也可强制固定深色 / 浅色
 - 📐 **阔屏 / 矮屏自动切三栏**：左按键 + 中央触控板 + 右按键，卡片高度绑定视口，避免下滑误触
+- 🛡️ **手势隔离**：触控板横滑只发给遥控器，不会连带切换 HA 仪表盘页签
 - 🧩 全部 `command_*` / `button_*` / `service_data` / `command_play*` 配置继续可用
 
 ## 宽屏适配（v1.7.0）
@@ -131,6 +132,7 @@ tilt_controls: true
 vibrate: true
 appearance: auto        # auto=跟随主题（默认） / dark / light
 layout: auto            # auto=宽屏三栏+普通竖版（默认） / portrait / wide
+block_view_swipe: true  # 隔离触控板手势，避免误切 HA 视图页签（默认 true）
 hint_text: 滑动控制上下左右，点击确定
 command_up:
   service: shell_command.tv_key
@@ -211,6 +213,7 @@ command_extra_2:
 |------|------|--------|------|
 | `appearance` | `auto` / `dark` / `light` | `auto` | `auto` 跟随 HA 明暗主题；`dark` / `light` 强制固定外观 |
 | `layout` | `auto` / `portrait` / `wide` | `auto` | `auto` 在宽屏/矮屏切三栏、普通手机保持竖版；另两个为强制 |
+| `block_view_swipe` | boolean | `true` | 拦截触控板手势向 HA 冒泡，防止左右滑动误切仪表盘页签 |
 | `hint_text` | string | `滑动控制上下左右，点击确定` | 触控板中央提示文字 |
 | `show_hint` | boolean | `true` | 是否显示提示文字 |
 | `show_more_menu` | boolean | `true` | 是否显示「⋮ 更多」菜单 |
@@ -230,6 +233,26 @@ command_extra_2:
 
 `dark` / `light` 使用固定字面配色，完全不受 HA 主题影响，适合想始终保留小米遥控器黑底的用户。
 
+#### 手势隔离原理（v1.7.1）
+
+卡片自身用 `pointer*` 事件识别滑动，但 HA 前端 / Companion 的「左右滑动切换视图」监听的是
+`touch*` / `mouse*` 事件——两套事件由浏览器**独立派发**，只拦 pointer 事件并不能阻止 touch 事件冒泡。
+
+v1.7.1 因此做了两层拦截：
+
+1. **卡片层**：在卡片自身注册 `touchstart/move/end/cancel`、`mousedown/move/up` 与 `pointer*` 的
+   冒泡监听器（早于卡片自己的手势处理器），对触控板内的事件 `preventDefault` + `stopPropagation`。
+   `stopPropagation` 只阻止继续向祖先冒泡，不影响同一元素上的其它监听器，所以卡片滑动逻辑照常运行。
+2. **顶层兜底**：在 `window` 捕获阶段再拦一层 touch / mouse。捕获阶段早于 `document` 捕获和
+   `hui-root` 上的监听器，可覆盖把导航挂在捕获阶段的实现。卡片自身只依赖 pointer 事件，不受影响。
+
+同时给触控板补了 `overscroll-behavior: contain` 与 `user-select: none`，避免边缘回弹、长按选择文字
+引发浏览器级导航。按钮与顶栏区域只拦冒泡、不 `preventDefault`，点击与长按完全不受影响。
+
+回归验证页 `gesture-v1.7.1.html` 同时模拟 6 类 HA 导航监听器，实测结果：关闭拦截时导航收到 12 次手势；
+开启后 document 冒泡 / document 捕获 / 祖先容器 / window 捕获 / pointer / mouse 均为 **0 次**，
+而遥控器 `right / up / down / tap` 与按钮点击全部正常。
+
 ## 升级说明（v1.5.0 → v1.6.0）
 
 - **纯布局 / 样式改造，原有 YAML 配置无需任何改动**，所有动作与命令照常生效。
@@ -237,6 +260,13 @@ command_extra_2:
 - `show_top_extra_buttons` 现在控制的是「更多」菜单里的两个额外按键；`show_buttons` / `show_volume` 含义不变。
 - 点击顶部「←」或标题行可收起 / 展开卡片；折叠态仍支持 `folded_template`。
 - 升级后请刷新浏览器，或在资源 URL 后追加新的 `?v=` 版本号。
+
+## 升级说明（v1.7.0 → v1.7.1）
+
+- **修复**：在触控板上左右滑动时，遥控器发出左 / 右键的同时，HA 仪表盘页签也被切换。
+- 原因是卡片只拦了 pointer 事件，HA 的视图滑动导航监听的是 touch / mouse 事件；现已在卡片层与 window 捕获层双重拦截。
+- 默认开启，YAML 无需改动；如需恢复旧行为（让手势继续冒泡），写 `block_view_swipe: false`。
+- 纯事件处理改动，布局、外观、主题跟随、全部按键与命令不变。
 
 ## 升级说明（v1.6.1 → v1.7.0）
 
@@ -259,6 +289,10 @@ command_extra_2:
 **样式还是旧的？** 浏览器缓存了旧 JS；HACS 重装或手动修改 `?v=` 后强刷。
 
 **滑动不灵敏？** 调小 `swipe_threshold`。
+
+**左右滑动仍会切换 HA 页签？** 先强刷浏览器确认加载的是 v1.7.1；检查是否显式写了 `block_view_swipe: false`。
+若用的是第三方「滑动切视图」插件，且它把监听器挂在 `window` 捕获阶段并在卡片加载前注册，属于浏览器事件模型
+无法覆盖的极端情形，可改用 `card_mod` / 该插件自身的排除配置，或关闭 `block_view_swipe` 后在插件里排除本卡片。
 
 **宽屏上还是竖版 / 想换回竖版？** 用 `layout: wide` / `layout: portrait` 强制指定；`auto` 的判定依据是视口高度 ≤760px、宽高比 ≥0.6 或卡片自身宽度 ≥560px。
 
