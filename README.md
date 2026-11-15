@@ -1,8 +1,8 @@
-# Touchpad Card（触控遥控器卡片）v1.6.0
+# Touchpad Card（触控遥控器卡片）v1.6.1
 
-一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：深色面板、大圆按钮、中央大触控板。
+一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：大圆按钮、中央大触控板；**v1.6.1 起外观默认跟随 HA 明暗主题**，不再是固定纯黑。
 
-> 仓库内的 `preview-v1.6.0.html` 是单文件自包含预览页，直接用浏览器打开即可看到新版外观（预览页用 Unicode 近似图标，HA 里显示真正的 MDI 图标）。
+> 仓库内的 `preview-v1.6.1.html` 是单文件自包含预览页，直接用浏览器打开即可看到深色 / 浅色双主题效果（预览页用 Unicode 近似图标，HA 里显示真正的 MDI 图标）。
 
 ## 界面布局
 
@@ -33,7 +33,7 @@
 - 📊 折叠态 + `folded_template` 模板跑马灯
 - ⚡ 电源状态判定：自动 / 按状态 / 按数值阈值
 - 🔧 四种控制模式：`remote`（红外）、`androidtv_remote`、`adb`、`button`
-- 🎨 深色外观为默认，可切换 `appearance: auto` 跟随 HA 主题
+- 🎨 **默认跟随 HA 明暗主题**（明暗切换即时生效），也可强制固定深色 / 浅色
 - 🧩 全部 `command_*` / `button_*` / `service_data` / `command_play*` 配置继续可用
 
 ## 安装方法
@@ -87,7 +87,7 @@ top_extra_2_icon: mdi:import
 swipe_threshold: 36
 tilt_controls: true
 vibrate: true
-appearance: dark
+appearance: auto        # auto=跟随主题（默认） / dark / light
 hint_text: 滑动控制上下左右，点击确定
 command_up:
   service: shell_command.tv_key
@@ -162,16 +162,29 @@ command_extra_2:
 | `command_*` | object / string | - | 各动作的自定义服务调用 |
 | `button_*` | string | - | `button` 模式下的按钮实体 |
 
-### v1.6.0 新增外观项
+### 外观配置项（v1.6.0 新增，v1.6.1 调整默认值）
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `appearance` | `dark` / `auto` | `dark` | `dark` 为小米遥控器深色；`auto` 跟随 HA 主题变量 |
+| `appearance` | `auto` / `dark` / `light` | `auto` | `auto` 跟随 HA 明暗主题；`dark` / `light` 强制固定外观 |
 | `hint_text` | string | `滑动控制上下左右，点击确定` | 触控板中央提示文字 |
 | `show_hint` | boolean | `true` | 是否显示提示文字 |
 | `show_more_menu` | boolean | `true` | 是否显示「⋮ 更多」菜单 |
 | `brand_label` | string | `mi` | 顶部橙色标识内文字 |
 | `brand_color` | string | `#ff6900` | 顶部标识背景色（仅接受 hex） |
+
+#### 主题跟随原理
+
+`appearance: auto`（默认）下，卡片背景、文字、图标、箭头、菜单、分隔线全部引用 HA 主题变量：
+`--ha-card-background`、`--primary-text-color`、`--secondary-text-color`、`--card-background-color`、
+`--divider-color`、`--primary-color`。因此在 HA 里切换深色 / 浅色主题（含「跟随系统」）时，
+卡片会**即时变色，无需刷新页面**。
+
+圆按钮与触控板的表面色、以及阴影／高光／提示文字描边则依据 `hass.themes.darkMode` 在深浅两套之间切换，
+保证浅色主题下不会出现白底白字或黑色阴影糊成一片。若 `hass` 未提供主题信息（预览页、旧版 HA），
+回退到浏览器 `prefers-color-scheme`。
+
+`dark` / `light` 使用固定字面配色，完全不受 HA 主题影响，适合想始终保留小米遥控器黑底的用户。
 
 ## 升级说明（v1.5.0 → v1.6.0）
 
@@ -180,6 +193,13 @@ command_extra_2:
 - `show_top_extra_buttons` 现在控制的是「更多」菜单里的两个额外按键；`show_buttons` / `show_volume` 含义不变。
 - 点击顶部「←」或标题行可收起 / 展开卡片；折叠态仍支持 `folded_template`。
 - 升级后请刷新浏览器，或在资源 URL 后追加新的 `?v=` 版本号。
+
+## 升级说明（v1.6.0 → v1.6.1）
+
+- **外观默认值由 `dark` 改为 `auto`**：升级后卡片会跟随 HA 明暗主题，深色主题下仍是原来的黑色遥控器，浅色主题下变为白色卡片 + 深色图标。YAML 无需改动。
+- 新增 `appearance: light`，并保留 `appearance: dark` 用于强制固定黑色外观。
+- 原来显式写了 `appearance: dark` 的配置不受影响，仍是固定深色。
+- 纯样式改动，所有按键、滑动、命令与配置全部保留。
 
 ## 疑难解答
 

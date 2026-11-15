@@ -1,8 +1,15 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.6.0
+ * Version: 1.6.1
  * 
  * Changelog:
+ * v1.6.1 (2026-11-15):
+ *   - 外观默认改为 auto，跟随 Home Assistant 明暗主题；直接引用
+ *     --ha-card-background / --primary-text-color 等主题变量，切换主题即时生效
+ *   - appearance 新增 light 选项；dark / light 为强制固定外观
+ *   - 依据 hass.themes.darkMode 调整阴影、高光与提示文字描边等细节
+ *   - hass 未提供主题信息时（预览页 / 旧版 HA）回退 prefers-color-scheme
+ *
  * v1.6.0 (2026-11-15):
  *   - 全新「小米电视遥控器」布局：顶部返回/品牌+设备名/更多菜单，
  *     电源与音量±三枚大圆按钮，中央大触控板，底部主页/返回/菜单
@@ -11,7 +18,7 @@
  *   - 完整保留滑动四方向、点击确定、倾斜换边、震动反馈、折叠模板、
  *     电源状态判定、四种控制模式以及全部 command_* / button_* 配置
  *   - 新增外观配置 appearance / hint_text / show_hint / show_more_menu /
- *     brand_label / brand_color，默认深色，auto 跟随 HA 主题
+ *     brand_label / brand_color，默认 auto 跟随 HA 主题
  *
  * v1.5.0 (2026-06-12):
  *   - 优化反馈图标样式，匹配 Home Assistant 官方设计风格
@@ -72,7 +79,7 @@ class TouchpadCard extends HTMLElement {
       control_mode: "remote",
       remote_device: "",
       collapsed: true,
-      appearance: "dark",
+      appearance: "auto",
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -657,13 +664,27 @@ class TouchpadCard extends HTMLElement {
     return `{% set entity = '${entity}' %}\n${template}`;
   }
 
+  _resolveDarkMode() {
+    const mode = String(this.config?.appearance ?? "auto").toLowerCase();
+    if (mode === "dark") return true;
+    if (mode === "light") return false;
+    const hassDark = this._hass?.themes?.darkMode;
+    if (typeof hassDark === "boolean") return hassDark;
+    if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+    return false;
+  }
+
   render(force = false) {
     if (!this.config) return;
     this._scheduleFoldedTemplateUpdate();
     const state = this._hass?.states?.[this.config.entity];
     const powerState = this._hass?.states?.[this.config.power_entity];
     const isPoweredOn = this._isPoweredOn(powerState);
-    const appearance = this.config.appearance === "auto" ? "auto" : "dark";
+    const rawAppearance = String(this.config.appearance ?? "auto").toLowerCase();
+    const appearance = rawAppearance === "dark" || rawAppearance === "light" ? rawAppearance : "auto";
+    const darkMode = this._resolveDarkMode();
     const hintText = String(this.config.hint_text ?? "滑动控制上下左右，点击确定");
     const rawBrand = String(this.config.brand_color || "");
     const brandColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(rawBrand) ? rawBrand : "#ff6900";
@@ -682,6 +703,8 @@ class TouchpadCard extends HTMLElement {
       power_state: powerState?.state,
       power_attributes: powerState?.attributes,
       is_powered_on: isPoweredOn,
+      appearance: appearance,
+      dark_mode: darkMode,
       dock: this._bottomDock,
       menu_open: menuOpen,
     });
@@ -712,7 +735,7 @@ class TouchpadCard extends HTMLElement {
       : circleSlot + circleSlot;
 
     this.innerHTML = `
-      <ha-card class="touchpad-root${appearance === "auto" ? " appearance-auto" : ""}">
+      <ha-card class="touchpad-root appearance-${appearance} theme-${darkMode ? "dark" : "light"}">
         <div class="touchpad-card${this._folded ? " is-folded" : ""}" style="--brand-color: ${brandColor}">
           <div class="remote-head" data-toggle title="收起 / 展开">
             <button class="head-nav" title="${this._folded ? "展开" : "收起"}" aria-label="${this._folded ? "展开" : "收起"}">
@@ -756,7 +779,48 @@ class TouchpadCard extends HTMLElement {
           `}
         </div>
         <style>
+          /* appearance: auto —— 直接引用 HA 主题变量，主题切换即时生效 */
           ha-card.touchpad-root {
+            --tc-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #fff)));
+            --tc-text: var(--primary-text-color, #212121);
+            --tc-muted: var(--secondary-text-color, #727272);
+            --tc-icon: var(--primary-text-color, #212121);
+            --tc-arrow: var(--primary-text-color, #212121);
+            --tc-menu-bg: var(--card-background-color, var(--primary-background-color, #fff));
+            --tc-border: var(--divider-color, rgba(128, 128, 128, 0.24));
+            --tc-press: color-mix(in srgb, var(--primary-color, #03a9f4) 16%, transparent);
+            display: block;
+            background: var(--tc-bg);
+            color: var(--tc-text);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: none;
+            border: 0;
+            transition: background-color 180ms ease, color 180ms ease;
+          }
+          /* 主题相关的表面色与阴影：由 hass.themes.darkMode 驱动 */
+          ha-card.touchpad-root.theme-dark {
+            --tc-surface: color-mix(in srgb, #ffffff 17%, var(--tc-bg));
+            --tc-pad: color-mix(in srgb, #ffffff 14%, var(--tc-bg));
+            --tc-shadow-menu: 0 10px 30px rgba(0, 0, 0, 0.42);
+            --tc-shadow-btn: 0 6px 14px rgba(0, 0, 0, 0.22);
+            --tc-shadow-pad: inset 0 1px 2px rgba(255, 255, 255, 0.04);
+            --tc-shadow-pad-press: inset 0 4px 14px rgba(0, 0, 0, 0.16);
+            --tc-shadow-hint: 0 1px 3px rgba(0, 0, 0, 0.45);
+            --tc-shadow-feedback: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+          }
+          ha-card.touchpad-root.theme-light {
+            --tc-surface: color-mix(in srgb, #000000 9%, var(--tc-bg));
+            --tc-pad: color-mix(in srgb, #000000 6%, var(--tc-bg));
+            --tc-shadow-menu: 0 10px 30px rgba(0, 0, 0, 0.14);
+            --tc-shadow-btn: 0 6px 14px rgba(0, 0, 0, 0.12);
+            --tc-shadow-pad: inset 0 1px 2px rgba(255, 255, 255, 0.9);
+            --tc-shadow-pad-press: inset 0 4px 14px rgba(0, 0, 0, 0.10);
+            --tc-shadow-hint: 0 1px 2px rgba(255, 255, 255, 0.9);
+            --tc-shadow-feedback: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+          }
+          /* 强制外观：脱离 HA 主题变量，使用固定配色 */
+          ha-card.touchpad-root.appearance-dark {
             --tc-bg: #171717;
             --tc-surface: #474747;
             --tc-pad: #4c4c4c;
@@ -767,25 +831,18 @@ class TouchpadCard extends HTMLElement {
             --tc-menu-bg: #262626;
             --tc-border: rgba(255, 255, 255, 0.10);
             --tc-press: rgba(255, 255, 255, 0.10);
-            display: block;
-            background: var(--tc-bg);
-            color: var(--tc-text);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: none;
-            border: 0;
           }
-          ha-card.touchpad-root.appearance-auto {
-            --tc-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #fff)));
-            --tc-surface: color-mix(in srgb, var(--primary-text-color, #212121) 10%, transparent);
-            --tc-pad: color-mix(in srgb, var(--primary-text-color, #212121) 15%, transparent);
-            --tc-text: var(--primary-text-color, #212121);
-            --tc-muted: var(--secondary-text-color, #727272);
-            --tc-icon: var(--primary-text-color, #212121);
-            --tc-arrow: var(--primary-text-color, #212121);
-            --tc-menu-bg: var(--card-background-color, #fff);
-            --tc-border: var(--divider-color, rgba(0, 0, 0, 0.12));
-            --tc-press: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent);
+          ha-card.touchpad-root.appearance-light {
+            --tc-bg: #ffffff;
+            --tc-surface: #e8e8e8;
+            --tc-pad: #f0f0f0;
+            --tc-text: #212121;
+            --tc-muted: #727272;
+            --tc-icon: #5f6368;
+            --tc-arrow: #3c4043;
+            --tc-menu-bg: #ffffff;
+            --tc-border: rgba(0, 0, 0, 0.12);
+            --tc-press: rgba(3, 169, 244, 0.14);
           }
           .touchpad-card {
             position: relative;
@@ -883,7 +940,7 @@ class TouchpadCard extends HTMLElement {
             border: 1px solid var(--tc-border);
             border-radius: 14px;
             background: var(--tc-menu-bg);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
+            box-shadow: var(--tc-shadow-menu);
           }
           .more-menu.is-open {
             display: grid;
@@ -961,7 +1018,7 @@ class TouchpadCard extends HTMLElement {
           .remote-button:hover {
             filter: brightness(1.18);
             transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+            box-shadow: var(--tc-shadow-btn);
           }
           .remote-button:active {
             transform: scale(0.93);
@@ -990,12 +1047,12 @@ class TouchpadCard extends HTMLElement {
             overflow: hidden;
             touch-action: none;
             transition: transform 200ms ease, filter 200ms ease, box-shadow 200ms ease;
-            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.04);
+            box-shadow: var(--tc-shadow-pad);
           }
           .touchpad-area.is-pressing {
             transform: scale(0.988);
             filter: brightness(1.08);
-            box-shadow: inset 0 4px 14px rgba(0, 0, 0, 0.16);
+            box-shadow: var(--tc-shadow-pad-press);
           }
           .direction-arrows {
             position: absolute;
@@ -1066,7 +1123,7 @@ class TouchpadCard extends HTMLElement {
             color: var(--tc-muted);
             font-size: 12px;
             letter-spacing: 0.2px;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+            text-shadow: var(--tc-shadow-hint);
             white-space: nowrap;
             pointer-events: none;
             transition: opacity 180ms ease;
@@ -1107,7 +1164,7 @@ class TouchpadCard extends HTMLElement {
           .feedback ha-icon {
             --mdc-icon-size: 56px;
             z-index: 1;
-            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+            filter: var(--tc-shadow-feedback);
             animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
           }
           @keyframes feedback-glow {
@@ -1312,7 +1369,7 @@ class TouchpadCardEditor extends HTMLElement {
       icon: "mdi:remote-tv",
       folded_template: "",
       collapsed: true,
-      appearance: "dark",
+      appearance: "auto",
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -1362,8 +1419,9 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "collapsed", selector: { boolean: {} } },
         { name: "icon", selector: { icon: {} } },
         { name: "appearance", selector: { select: { options: [
-          { value: "dark", label: "深色遥控器（默认）" },
-          { value: "auto", label: "跟随 HA 主题" },
+          { value: "auto", label: "跟随 HA 主题（默认）" },
+          { value: "dark", label: "强制深色遥控器" },
+          { value: "light", label: "强制浅色遥控器" },
         ] } } },
         { name: "hint_text", selector: { text: {} } },
         { name: "show_hint", selector: { boolean: {} } },
@@ -1520,7 +1578,7 @@ class TouchpadCardEditor extends HTMLElement {
 
 
 console.info(
-  `%c Touchpad Card %c v1.6.0 `,
+  `%c Touchpad Card %c v1.6.1 `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );
