@@ -3,6 +3,11 @@
  * Version: 1.7.1
  * 
  * Changelog:
+ * v1.7.1 (2026-11-15):
+ *   - 修复触控板左右滑动时误触 HA 仪表盘视图切换（手势事件冒泡）
+ *   - 卡片层拦截 touch/mouse/pointer 冒泡，window 捕获阶段兜底拦截 touch/mouse
+ *   - 新增 block_view_swipe 配置（默认 true）
+ *
  * v1.7.0 (2026-11-15):
  *   - 新增阔屏 / 矮屏自适应布局：左按键 + 中央触控板 + 右按键三栏，
  *     针对华为 Pura X Max 外屏 459x672vp、内屏 939x664vp 等宽而矮的屏幕
@@ -1814,8 +1819,10 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
+const CARD_VERSION = "1.7.1";
+
 console.info(
-  `%c Touchpad Card %c v1.7.0 `,
+  `%c Touchpad Card %c v${CARD_VERSION} `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );
