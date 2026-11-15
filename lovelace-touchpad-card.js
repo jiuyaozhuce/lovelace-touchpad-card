@@ -1,8 +1,17 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.7.2
+ * Version: 1.7.3
  * 
  * Changelog:
+ * v1.7.3 (2026-11-15):
+ *   - 细线化改造，贴合 Home Assistant 官方设计语言（design tokens / Material 3）
+ *   - 圆形按键：实心灰底 → 透明 + 1px hairline 描边；去掉位移、亮度滤镜与重阴影
+ *   - 四向箭头：实心黑三角 → 1.5px 细线 chevron + 渐隐细线轨迹
+ *   - 触控板：实心灰块 → 透明 + 1px 边框；按压只用淡色 state layer
+ *   - 品牌 logo / 标题 / 分隔线 / 反馈光晕全部细线化、降对比度
+ *   - 优先使用 HA 官方 --ha-* token，回退到 --divider-color / --primary-text-color 等旧变量
+ *   - 功能、主题跟随、阔屏三栏布局、手势隔离均不变
+ *
  * v1.7.2 (2026-11-15):
  *   - 默认不再显示「滑动控制上下左右，点击确定」等触控板提示文字
  *   - show_hint 默认值改为 false；显式写 show_hint: true 仍可开启并配合 hint_text 自定义
@@ -894,10 +903,10 @@ class TouchpadCard extends HTMLElement {
             </div>
             <div class="touchpad-area${this._feedback ? " has-feedback" : ""}">
               <div class="direction-arrows" aria-hidden="true">
-                <span class="arrow up"></span>
-                <span class="arrow down"></span>
-                <span class="arrow left"></span>
-                <span class="arrow right"></span>
+                <ha-icon class="arrow up" icon="mdi:chevron-up"></ha-icon>
+                <ha-icon class="arrow down" icon="mdi:chevron-down"></ha-icon>
+                <ha-icon class="arrow left" icon="mdi:chevron-left"></ha-icon>
+                <ha-icon class="arrow right" icon="mdi:chevron-right"></ha-icon>
               </div>
               ${showHint ? `<div class="hint-text">${this._escape(hintText)}</div>` : ""}
               ${this.config.debug ? `<div class="debug">${this._escape(this._debug)}</div>` : ""}
@@ -913,87 +922,103 @@ class TouchpadCard extends HTMLElement {
           `}
         </div>
         <style>
-          /* appearance: auto —— 直接引用 HA 主题变量，主题切换即时生效 */
+          /* v1.7.3 细线化：优先 HA 官方 design token，回退到旧主题变量，主题切换即时生效 */
           ha-card.touchpad-root {
             --tc-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #fff)));
-            --tc-text: var(--primary-text-color, #212121);
-            --tc-muted: var(--secondary-text-color, #727272);
-            --tc-icon: var(--primary-text-color, #212121);
-            --tc-arrow: var(--primary-text-color, #212121);
+            --tc-text: var(--ha-color-text-primary, var(--primary-text-color, #212121));
+            --tc-muted: var(--ha-color-text-secondary, var(--secondary-text-color, #727272));
+            --tc-icon: var(--ha-color-text-secondary, var(--secondary-text-color, #727272));
+            --tc-arrow: var(--ha-color-text-secondary, var(--secondary-text-color, #727272));
             --tc-menu-bg: var(--card-background-color, var(--primary-background-color, #fff));
-            --tc-border: var(--divider-color, rgba(128, 128, 128, 0.24));
-            --tc-press: color-mix(in srgb, var(--primary-color, #03a9f4) 16%, transparent);
+            /* hairline：官方语义边框 token → 旧 divider → 中性淡色 */
+            --tc-line: var(--ha-color-border-neutral-quiet, var(--divider-color, rgba(128, 128, 128, 0.22)));
+            --tc-line-hover: color-mix(in srgb, var(--primary-color, #03a9f4) 42%, transparent);
+            --tc-border: var(--tc-line);
+            --tc-press: color-mix(in srgb, var(--primary-color, #03a9f4) 9%, transparent);
+            /* 表面一律透明，靠 1px 细线勾勒，避免实心色块 */
+            --tc-surface: transparent;
+            --tc-pad: transparent;
+            --tc-radius-card: var(--ha-border-radius-xl, 16px);
+            --tc-radius-pad: var(--ha-border-radius-lg, 12px);
+            --tc-radius-menu: var(--ha-border-radius-lg, 12px);
+            --tc-hairline: 1px;
             display: block;
             background: var(--tc-bg);
             color: var(--tc-text);
-            border-radius: 20px;
+            border-radius: var(--tc-radius-card);
             overflow: hidden;
             box-shadow: none;
             border: 0;
             transition: background-color 180ms ease, color 180ms ease;
           }
-          /* 主题相关的表面色与阴影：由 hass.themes.darkMode 驱动 */
+          /* 主题相关：仅保留极淡的浮层阴影，其余全部去掉 */
           ha-card.touchpad-root.theme-dark {
-            --tc-surface: color-mix(in srgb, #ffffff 17%, var(--tc-bg));
-            --tc-pad: color-mix(in srgb, #ffffff 14%, var(--tc-bg));
-            --tc-shadow-menu: 0 10px 30px rgba(0, 0, 0, 0.42);
-            --tc-shadow-btn: 0 6px 14px rgba(0, 0, 0, 0.22);
-            --tc-shadow-pad: inset 0 1px 2px rgba(255, 255, 255, 0.04);
-            --tc-shadow-pad-press: inset 0 4px 14px rgba(0, 0, 0, 0.16);
-            --tc-shadow-hint: 0 1px 3px rgba(0, 0, 0, 0.45);
-            --tc-shadow-feedback: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+            --tc-shadow-menu: 0 6px 18px rgba(0, 0, 0, 0.28);
+            --tc-shadow-btn: none;
+            --tc-shadow-pad: none;
+            --tc-shadow-pad-press: none;
+            --tc-shadow-hint: none;
+            --tc-shadow-feedback: none;
           }
           ha-card.touchpad-root.theme-light {
-            --tc-surface: color-mix(in srgb, #000000 9%, var(--tc-bg));
-            --tc-pad: color-mix(in srgb, #000000 6%, var(--tc-bg));
-            --tc-shadow-menu: 0 10px 30px rgba(0, 0, 0, 0.14);
-            --tc-shadow-btn: 0 6px 14px rgba(0, 0, 0, 0.12);
-            --tc-shadow-pad: inset 0 1px 2px rgba(255, 255, 255, 0.9);
-            --tc-shadow-pad-press: inset 0 4px 14px rgba(0, 0, 0, 0.10);
-            --tc-shadow-hint: 0 1px 2px rgba(255, 255, 255, 0.9);
-            --tc-shadow-feedback: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.12));
+            --tc-shadow-menu: 0 6px 18px rgba(0, 0, 0, 0.08);
+            --tc-shadow-btn: none;
+            --tc-shadow-pad: none;
+            --tc-shadow-pad-press: none;
+            --tc-shadow-hint: none;
+            --tc-shadow-feedback: none;
           }
           /* 强制外观：脱离 HA 主题变量，使用固定配色 */
           ha-card.touchpad-root.appearance-dark {
             --tc-bg: #171717;
-            --tc-surface: #474747;
-            --tc-pad: #4c4c4c;
+            --tc-surface: transparent;
+            --tc-pad: transparent;
             --tc-text: #f5f5f5;
             --tc-muted: rgba(255, 255, 255, 0.52);
-            --tc-icon: rgba(255, 255, 255, 0.66);
-            --tc-arrow: rgba(255, 255, 255, 0.94);
+            --tc-icon: rgba(255, 255, 255, 0.62);
+            --tc-arrow: rgba(255, 255, 255, 0.55);
             --tc-menu-bg: #262626;
-            --tc-border: rgba(255, 255, 255, 0.10);
-            --tc-press: rgba(255, 255, 255, 0.10);
+            --tc-border: rgba(255, 255, 255, 0.14);
+            --tc-line: rgba(255, 255, 255, 0.14);
+            --tc-line-hover: rgba(255, 255, 255, 0.32);
+            --tc-press: rgba(255, 255, 255, 0.07);
           }
           ha-card.touchpad-root.appearance-light {
             --tc-bg: #ffffff;
-            --tc-surface: #e8e8e8;
-            --tc-pad: #f0f0f0;
+            --tc-surface: transparent;
+            --tc-pad: transparent;
             --tc-text: #212121;
             --tc-muted: #727272;
             --tc-icon: #5f6368;
-            --tc-arrow: #3c4043;
+            --tc-arrow: #7a7a7a;
             --tc-menu-bg: #ffffff;
             --tc-border: rgba(0, 0, 0, 0.12);
-            --tc-press: rgba(3, 169, 244, 0.14);
+            --tc-line: rgba(0, 0, 0, 0.12);
+            --tc-line-hover: rgba(3, 169, 244, 0.45);
+            --tc-press: rgba(3, 169, 244, 0.07);
           }
           .touchpad-card {
             position: relative;
-            padding: 14px 20px 24px;
+            padding: var(--ha-space-4, 16px) var(--ha-space-5, 20px) var(--ha-space-6, 24px);
             user-select: none;
             -webkit-user-select: none;
           }
           .touchpad-card.is-folded {
-            padding-bottom: 14px;
+            padding-bottom: var(--ha-space-4, 16px);
+          }
+          .touchpad-card.is-folded .remote-head {
+            border-bottom: 0;
+            padding-bottom: 0;
           }
           /* ---------- 顶部栏：返回 / 品牌+名称 / 更多 ---------- */
           .remote-head {
             display: grid;
             grid-template-columns: 40px minmax(0, 1fr) 40px;
             align-items: center;
-            gap: 8px;
+            gap: var(--ha-space-2, 8px);
             min-height: 48px;
+            padding-bottom: var(--ha-space-2, 8px);
+            border-bottom: var(--tc-hairline) solid var(--tc-line);
             cursor: pointer;
           }
           .head-nav,
@@ -1006,14 +1031,15 @@ class TouchpadCard extends HTMLElement {
             border: 0;
             border-radius: 50%;
             background: transparent;
-            color: var(--tc-text);
+            color: var(--tc-muted);
             font: inherit;
             cursor: pointer;
-            transition: background 140ms ease, transform 140ms ease;
+            transition: background 140ms ease, color 140ms ease;
           }
           .head-nav:hover,
           .head-more:hover {
             background: var(--tc-press);
+            color: var(--tc-text);
           }
           .head-nav:active,
           .head-more:active {
@@ -1021,7 +1047,7 @@ class TouchpadCard extends HTMLElement {
           }
           .head-nav ha-icon,
           .head-more ha-icon {
-            --mdc-icon-size: 24px;
+            --mdc-icon-size: 20px;
           }
           .head-more-slot {
             width: 40px;
@@ -1041,20 +1067,21 @@ class TouchpadCard extends HTMLElement {
             flex: 0 0 auto;
             width: 22px;
             height: 22px;
-            border-radius: 6px;
-            background: var(--brand-color, #ff6900);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 800;
+            border: var(--tc-hairline) solid color-mix(in srgb, var(--brand-color, var(--tc-line)) 45%, transparent);
+            border-radius: var(--ha-border-radius-sm, 4px);
+            background: transparent;
+            color: var(--tc-muted);
+            font-size: var(--ha-font-size-xs, 10px);
+            font-weight: var(--ha-font-weight-medium, 500);
             line-height: 1;
-            letter-spacing: -0.6px;
+            letter-spacing: -0.4px;
           }
           .head-title .title {
             flex: 0 1 auto;
             min-width: 0;
-            font-size: 17px;
-            font-weight: 600;
-            line-height: 1.2;
+            font-size: var(--ha-font-size-l, 16px);
+            font-weight: var(--ha-font-weight-medium, 500);
+            line-height: var(--ha-line-height-condensed, 1.2);
             color: var(--tc-text);
             overflow: hidden;
             text-overflow: ellipsis;
@@ -1071,8 +1098,8 @@ class TouchpadCard extends HTMLElement {
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 4px;
             padding: 8px;
-            border: 1px solid var(--tc-border);
-            border-radius: 14px;
+            border: var(--tc-hairline) solid var(--tc-line);
+            border-radius: var(--tc-radius-menu);
             background: var(--tc-menu-bg);
             box-shadow: var(--tc-shadow-menu);
           }
@@ -1137,33 +1164,38 @@ class TouchpadCard extends HTMLElement {
           .remote-button {
             display: inline-grid;
             place-items: center;
+            box-sizing: border-box;
             padding: 0;
-            border: 0;
+            border: var(--tc-hairline) solid var(--tc-line);
             background: var(--tc-surface);
             color: var(--tc-icon);
             font: inherit;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
-            transition: transform 120ms ease, filter 140ms ease, box-shadow 140ms ease;
+            transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 120ms ease;
           }
           .remote-button ha-icon {
-            --mdc-icon-size: 28px;
+            --mdc-icon-size: 24px;
           }
           .remote-button:hover {
-            filter: brightness(1.18);
-            transform: translateY(-2px);
-            box-shadow: var(--tc-shadow-btn);
+            background: var(--tc-press);
+            border-color: var(--tc-line-hover);
+            color: var(--tc-text);
+            filter: none;
+            box-shadow: none;
           }
           .remote-button:active {
-            transform: scale(0.93);
-            filter: brightness(1.26);
+            background: var(--tc-press);
+            border-color: var(--tc-line-hover);
+            transform: scale(0.97);
+            filter: none;
             box-shadow: none;
           }
           .circle-btn {
-            border-radius: 50%;
+            border-radius: var(--ha-border-radius-circle, 50%);
           }
           .pill-btn {
-            border-radius: 999px;
+            border-radius: var(--ha-border-radius-pill, 999px);
           }
           .power-button.is-on {
             color: var(--tc-text);
@@ -1171,24 +1203,26 @@ class TouchpadCard extends HTMLElement {
           /* ---------- 中央触控板 ---------- */
           .touchpad-area {
             position: relative;
+            box-sizing: border-box;
             width: 100%;
             height: clamp(220px, 44vh, 420px);
             height: clamp(220px, 44dvh, 420px);
             min-height: 0;
             margin-top: clamp(14px, 3%, 28px);
-            border-radius: 22px;
+            border: var(--tc-hairline) solid var(--tc-line);
+            border-radius: var(--tc-radius-pad);
             background: var(--tc-pad);
             overflow: hidden;
             touch-action: none;
             overscroll-behavior: contain;
             -webkit-user-select: none;
             user-select: none;
-            transition: transform 200ms ease, filter 200ms ease, box-shadow 200ms ease;
+            transition: background-color 200ms ease, border-color 200ms ease;
             box-shadow: var(--tc-shadow-pad);
           }
           .touchpad-area.is-pressing {
-            transform: scale(0.988);
-            filter: brightness(1.08);
+            background: var(--tc-press);
+            border-color: var(--tc-line-hover);
             box-shadow: var(--tc-shadow-pad-press);
           }
           .direction-arrows {
@@ -1197,60 +1231,20 @@ class TouchpadCard extends HTMLElement {
             z-index: 1;
             pointer-events: none;
             color: var(--tc-arrow);
+            opacity: 0.72;
             transition: opacity 180ms ease;
           }
+          /* v1.7.3: 直接使用 HA 原生 ha-icon chevron（细线），无实心三角、无旋转错位 */
           .arrow {
             position: absolute;
-            width: 54px;
-            height: 82px;
-            opacity: 0.92;
+            --mdc-icon-size: 24px;
+            color: var(--tc-arrow);
+            pointer-events: none;
           }
-          .arrow::before {
-            content: "";
-            position: absolute;
-            left: 50%;
-            bottom: 0;
-            transform: translateX(-50%);
-            width: 14px;
-            height: 40px;
-            background: linear-gradient(to top, transparent, currentColor);
-            opacity: 0.78;
-          }
-          .arrow::after {
-            content: "";
-            position: absolute;
-            left: 50%;
-            top: 0;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 27px solid transparent;
-            border-right: 27px solid transparent;
-            border-bottom: 40px solid currentColor;
-          }
-          .arrow.up {
-            top: 11%;
-            left: 50%;
-            margin-left: -27px;
-          }
-          .arrow.down {
-            bottom: 11%;
-            left: 50%;
-            margin-left: -27px;
-            transform: rotate(180deg);
-          }
-          .arrow.left {
-            left: 4%;
-            top: 50%;
-            margin-top: -41px;
-            transform: rotate(-90deg);
-          }
-          .arrow.right {
-            right: 4%;
-            top: 50%;
-            margin-top: -41px;
-            transform: rotate(90deg);
-          }
+          .arrow.up { top: 10px; left: 50%; transform: translateX(-50%); }
+          .arrow.down { bottom: 10px; left: 50%; transform: translateX(-50%); }
+          .arrow.left { left: 10px; top: 50%; transform: translateY(-50%); }
+          .arrow.right { right: 10px; top: 50%; transform: translateY(-50%); }
           .hint-text {
             position: absolute;
             top: 50%;
@@ -1258,9 +1252,9 @@ class TouchpadCard extends HTMLElement {
             z-index: 2;
             transform: translate(-50%, -50%);
             color: var(--tc-muted);
-            font-size: 12px;
+            font-size: var(--ha-font-size-s, 12px);
             letter-spacing: 0.2px;
-            text-shadow: var(--tc-shadow-hint);
+            text-shadow: none;
             white-space: nowrap;
             pointer-events: none;
             transition: opacity 180ms ease;
@@ -1292,16 +1286,18 @@ class TouchpadCard extends HTMLElement {
           .feedback::before {
             content: "";
             position: absolute;
-            width: 120px;
-            height: 120px;
+            width: 72px;
+            height: 72px;
             border-radius: 50%;
-            background: radial-gradient(circle, var(--tc-press) 0%, transparent 70%);
+            border: var(--tc-hairline) solid var(--tc-line-hover);
+            background: transparent;
             animation: feedback-glow 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
           }
           .feedback ha-icon {
-            --mdc-icon-size: 56px;
+            --mdc-icon-size: 32px;
             z-index: 1;
-            filter: var(--tc-shadow-feedback);
+            color: var(--tc-muted);
+            filter: none;
             animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
           }
           @keyframes feedback-glow {
@@ -1384,39 +1380,25 @@ class TouchpadCard extends HTMLElement {
           }
           @media (max-width: 480px) {
             .touchpad-card {
-              padding: 10px 16px 20px;
+              padding: var(--ha-space-3, 12px) var(--ha-space-4, 16px) var(--ha-space-5, 20px);
             }
             .remote-head {
               min-height: 44px;
             }
             .head-title .title {
-              font-size: 16px;
+              font-size: var(--ha-font-size-l, 16px);
             }
             .touchpad-area {
               height: clamp(200px, 40vh, 340px);
               height: clamp(200px, 40dvh, 340px);
-              border-radius: 18px;
+              border-radius: var(--tc-radius-pad);
             }
             .hint-text {
-              font-size: 12px;
+              font-size: var(--ha-font-size-s, 12px);
             }
             .arrow {
-              width: 44px;
-              height: 68px;
+              --mdc-icon-size: 22px;
             }
-            .arrow::before {
-              width: 12px;
-              height: 32px;
-            }
-            .arrow::after {
-              border-left-width: 22px;
-              border-right-width: 22px;
-              border-bottom-width: 34px;
-            }
-            .arrow.up { margin-left: -22px; }
-            .arrow.down { margin-left: -22px; }
-            .arrow.left { margin-top: -34px; }
-            .arrow.right { margin-top: -34px; }
             .remote-button ha-icon {
               --mdc-icon-size: 24px;
             }
@@ -1493,7 +1475,7 @@ class TouchpadCard extends HTMLElement {
             max-height: none;
             aspect-ratio: auto;
             margin-top: 0;
-            border-radius: 18px;
+            border-radius: var(--tc-radius-pad);
           }
           ha-card.touchpad-root.layout-wide .hint-text {
             top: auto;
@@ -1502,22 +1484,8 @@ class TouchpadCard extends HTMLElement {
             font-size: 11px;
           }
           ha-card.touchpad-root.layout-wide .arrow {
-            width: 40px;
-            height: 68px;
+            --mdc-icon-size: 20px;
           }
-          ha-card.touchpad-root.layout-wide .arrow::before {
-            width: 11px;
-            height: 30px;
-          }
-          ha-card.touchpad-root.layout-wide .arrow::after {
-            border-left-width: 20px;
-            border-right-width: 20px;
-            border-bottom-width: 32px;
-          }
-          ha-card.touchpad-root.layout-wide .arrow.up { margin-left: -20px; }
-          ha-card.touchpad-root.layout-wide .arrow.down { margin-left: -20px; }
-          ha-card.touchpad-root.layout-wide .arrow.left { left: 2%; margin-top: -34px; }
-          ha-card.touchpad-root.layout-wide .arrow.right { right: 2%; margin-top: -34px; }
           ha-card.touchpad-root.layout-wide .more-menu {
             top: 52px;
             right: 12px;
@@ -1825,7 +1793,7 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
-const CARD_VERSION = "1.7.2";
+const CARD_VERSION = "1.7.3";
 
 console.info(
   `%c Touchpad Card %c v${CARD_VERSION} `,
