@@ -1,6 +1,6 @@
-# Touchpad Card（触控遥控器卡片）v1.7.3
+# Touchpad Card（触控遥控器卡片）v1.7.4
 
-一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：大圆按钮、中央大触控板；**v1.6.1 起外观默认跟随 HA 明暗主题**；**v1.7.0 起新增阔屏 / 矮屏三栏布局**，专为华为 Pura X Max 这类「宽而矮」的屏幕设计；**v1.7.1 起隔离触控板手势**，左右滑动不再误触 HA 的仪表盘视图切换；**v1.7.2 起默认隐藏触控板提示文字**；**v1.7.3 起按 HA 官方设计语言做细线化改造**，按钮、触控板、箭头、分隔线统一为 hairline 描边，视觉更轻、更贴合原生卡片。
+一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：大圆按钮、中央大触控板；**v1.6.1 起外观默认跟随 HA 明暗主题**；**v1.7.0 起新增阔屏 / 矮屏三栏布局**，专为华为 Pura X Max 这类「宽而矮」的屏幕设计；**v1.7.1 起隔离触控板手势**，左右滑动不再误触 HA 的仪表盘视图切换；**v1.7.2 起默认隐藏触控板提示文字**；**v1.7.3 起按 HA 官方设计语言做细线化改造**，按钮、触控板、箭头、分隔线统一为 hairline 描边；**v1.7.4 起默认不再显示顶部「mi」品牌标识**，标题栏更干净、更贴合原生卡片。
 
 > 仓库内的 `preview-v1.7.0.html` 是单文件自包含对比页（6 张真实视口实测截图与量化数据）；`gesture-v1.7.1.html` 是手势冒泡回归验证页，打开即可看到 13 项实时检测结果。
 
@@ -8,7 +8,7 @@
 
 ```
 ┌─────────────────────────────────┐
-│  ←         [mi] 小米电视      ⋮  │  顶部栏：收起/展开 · 品牌标+设备名 · 更多
+│  ←           小米电视         ⋮  │  顶部栏：收起/展开 · 设备名 · 更多
 │                                 │
 │    (电源)      (音量−)    (音量＋) │  三枚细线描边圆按钮
 │                                 │
@@ -29,7 +29,7 @@
 
 ```
 ┌───────────────────────────────────────────────────┐
-│  ←         [mi] 小米电视                      ⋮  │
+│  ←          小米电视                          ⋮  │
 ├──────────┬───────────────────────────┬───────────┤
 │  (电源)  │            ▲              │  (主页)   │
 │          │                           │           │
@@ -40,7 +40,7 @@
 └──────────┴───────────────────────────┴───────────┘
 ```
 
-左右按键各占一列、触控板居中，双手拇指都能自然够到。v1.7.3 起触控板与按键全部是透明底 + 1px hairline 细线，触控板内只保留四向细线 chevron 与滑动反馈图标，默认不显示提示文字；如需显示可写 `show_hint: true`（文字会贴在触控板底部，不与箭头挤在一起）。
+左右按键各占一列、触控板居中，双手拇指都能自然够到。v1.7.3 起触控板与按键全部是透明底 + 1px hairline 细线；v1.7.4 起顶部只保留居中的设备名（默认无品牌标识），触控板内只保留四向细线 chevron 与滑动反馈图标，默认不显示提示文字。如需显示提示文字可写 `show_hint: true`（文字贴在触控板底部），如需恢复品牌小方框可写 `show_brand: true`。
 
 ## 功能特点
 
@@ -135,6 +135,8 @@ layout: auto            # auto=宽屏三栏+普通竖版（默认） / portrait 
 block_view_swipe: true  # 隔离触控板手势，避免误切 HA 视图页签（默认 true）
 show_hint: false       # 默认不显示提示文字；设为 true 才显示（见下方外观配置）
 # hint_text: 滑动控制上下左右，点击确定   # 需配合 show_hint: true
+show_brand: false      # v1.7.4 起默认不显示顶部 mi 标识；设为 true 才显示
+# brand_label: mi                       # 需配合 show_brand: true，可自定义文字
 command_up:
   service: shell_command.tv_key
   data: { key: up }
@@ -218,8 +220,9 @@ command_extra_2:
 | `hint_text` | string | `滑动控制上下左右，点击确定` | 提示文字内容，仅 `show_hint: true` 时生效 |
 | `show_hint` | boolean | `false` | 是否显示提示文字（v1.7.2 起默认关闭） |
 | `show_more_menu` | boolean | `true` | 是否显示「⋮ 更多」菜单 |
-| `brand_label` | string | `mi` | 顶部细线标识框内文字 |
-| `brand_color` | string | `#ff6900` | 顶部标识的描边色（v1.7.3 起不再是实心背景，仅接受 hex） |
+| `show_brand` | boolean | `false` | 是否显示顶部品牌标识（v1.7.4 起默认关闭） |
+| `brand_label` | string | `mi` | 品牌标识文字，仅 `show_brand: true` 且文字非空时生效 |
+| `brand_color` | string | `#ff6900` | 品牌标识描边色，仅 `show_brand: true` 时生效（1px 描边，仅接受 hex） |
 
 #### 主题跟随原理
 
@@ -254,6 +257,13 @@ v1.7.1 因此做了两层拦截：
 开启后 document 冒泡 / document 捕获 / 祖先容器 / window 捕获 / pointer / mouse 均为 **0 次**，
 而遥控器 `right / up / down / tap` 与按钮点击全部正常。
 
+## 升级说明（v1.7.3 → v1.7.4）
+
+- **默认不再显示顶部「mi」品牌小方框**，标题栏只保留居中的设备名，视觉更干净、更贴近 HA 原生卡片。
+- 新增 `show_brand`（默认 `false`）；只有显式 `show_brand: true` 且 `brand_label` 非空才渲染。想恢复写 `show_brand: true`，可用 `brand_label` / `brand_color` 自定义文字与描边色。
+- 只移除了标识节点，标题依旧居中（标题栏是 flex 居中布局），折叠态、菜单、全部按键与命令不变。
+- 纯显示层改动：细线风格、主题跟随、阔屏三栏、手势隔离、提示文字默认隐藏均不变；YAML 无需修改，升级即生效。
+
 ## 升级说明（v1.7.2 → v1.7.3）
 
 参照 [Home Assistant Design](https://contributors.home-assistant.io/design/)（原 design.home-assistant.io 已迁移）、[Foundations: Color / Typography / Spacing](https://contributors.home-assistant.io/design/foundations/) 与 [Theming and design tokens](https://contributors.home-assistant.io/frontend/architecture/theming/) 做细线化改造：
@@ -261,7 +271,7 @@ v1.7.1 因此做了两层拦截：
 - **圆形按键**：实心灰底 → 透明 + 1px hairline 描边；去掉位移、亮度滤镜与重阴影，hover / 按压改用淡色 state layer。
 - **四向箭头**：实心黑三角 → HA 原生 `ha-icon` 的 `mdi:chevron-*` 细线图标；顺带修正左右箭头在窄三栏触控板里被旋转定位挤出边框的问题。
 - **触控板**：实心灰块 → 透明 + 1px 边框；按压不再缩放／提亮，只变淡色底与边框。
-- **其它细节**：顶部栏加 1px 分隔线；品牌标识由橙色实心块 → 1px 描边小方框；反馈光晕由径向渐变 → 1px 细圆环，反馈图标 56px → 32px；标题字重 600 → 500，圆角统一到官方 token（卡片 16px / 触控板与菜单 12px）。
+- **其它细节**：顶部栏加 1px 分隔线；品牌标识由橙色实心块 → 1px 描边小方框（该标识自 v1.7.4 起默认隐藏）；反馈光晕由径向渐变 → 1px 细圆环，反馈图标 56px → 32px；标题字重 600 → 500，圆角统一到官方 token（卡片 16px / 触控板与菜单 12px）。
 - **主题兼容**：优先 `--ha-*` 官方 token，缺失时回退 `--divider-color` / `--primary-text-color` 等旧变量，兼容自定义主题与旧版 HA。
 - **纯视觉层改动**：功能、主题跟随、阔屏三栏、手势隔离、提示文字默认隐藏、全部按键与命令均不变；YAML 无需修改。
 
@@ -308,6 +318,8 @@ v1.7.1 因此做了两层拦截：
 **样式还是旧的？** 浏览器缓存了旧 JS；HACS 重装或手动修改 `?v=` 后强刷。
 
 **想恢复触控板提示文字？** 在卡片 YAML 里写 `show_hint: true`，可选 `hint_text: 自定义文案`；默认（v1.7.2 起）为隐藏。
+
+**想恢复顶部品牌标识？** 写 `show_brand: true`，可选 `brand_label: 自定义文字` 与 `brand_color: '#ff6900'`；默认（v1.7.4 起）为隐藏。
 
 **细线太淡看不清？** v1.7.3 的描边直接取自主题 `--divider-color` / `--ha-color-border-neutral-quiet`，在主题里调深即可；也可写 `appearance: dark` 使用固定深色高对比配色。
 

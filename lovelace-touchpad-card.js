@@ -1,12 +1,17 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.7.3
+ * Version: 1.7.4
  * 
  * Changelog:
+ * v1.7.4 (2026-11-15):
+ *   - 默认不再显示顶部「mi」品牌标识，标题栏更干净、更贴合 HA 风格
+ *   - 新增 show_brand（默认 false）；显式写 show_brand: true 才渲染，可配合 brand_label / brand_color 自定义
+ *   - 只移除了标识节点，标题仍居中；布局、主题跟随、阔屏三栏、手势隔离、全部按键与命令不变
+ *
  * v1.7.3 (2026-11-15):
  *   - 细线化改造，贴合 Home Assistant 官方设计语言（design tokens / Material 3）
  *   - 圆形按键：实心灰底 → 透明 + 1px hairline 描边；去掉位移、亮度滤镜与重阴影
- *   - 四向箭头：实心黑三角 → 1.5px 细线 chevron + 渐隐细线轨迹
+ *   - 四向箭头：实心黑三角 → HA 原生 mdi:chevron 细线图标
  *   - 触控板：实心灰块 → 透明 + 1px 边框；按压只用淡色 state layer
  *   - 品牌 logo / 标题 / 分隔线 / 反馈光晕全部细线化、降对比度
  *   - 优先使用 HA 官方 --ha-* token，回退到 --divider-color / --primary-text-color 等旧变量
@@ -112,6 +117,7 @@ class TouchpadCard extends HTMLElement {
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: false,
       show_more_menu: true,
+      show_brand: false,
       brand_label: "mi",
       brand_color: "#ff6900",
       show_buttons: true,
@@ -830,6 +836,8 @@ class TouchpadCard extends HTMLElement {
     const rawBrand = String(this.config.brand_color || "");
     const brandColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(rawBrand) ? rawBrand : "#ff6900";
     const brandLabel = String(this.config.brand_label ?? "mi");
+    // v1.7.4: 品牌标识默认关闭；只有显式 show_brand: true 且文字非空才渲染
+    const showBrand = this.config.show_brand === true && brandLabel.trim() !== "";
     // v1.7.2: 提示文字默认关闭；只有显式 show_hint: true 且文字非空才渲染
     const showHint = this.config.show_hint === true && hintText.trim() !== "";
     const showMoreMenu = this.config.show_more_menu !== false;
@@ -885,7 +893,7 @@ class TouchpadCard extends HTMLElement {
               <ha-icon icon="${this._folded ? "mdi:chevron-down" : "mdi:arrow-left"}"></ha-icon>
             </button>
             <div class="head-title">
-              <span class="brand-logo">${this._escape(brandLabel)}</span>
+              ${showBrand ? `<span class="brand-logo">${this._escape(brandLabel)}</span>` : ""}
               <span class="title">${this._escape(this.config.name)}</span>
               ${this._folded ? this._foldedTemplate() : ""}
             </div>
@@ -1583,6 +1591,7 @@ class TouchpadCardEditor extends HTMLElement {
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: false,
       show_more_menu: true,
+      show_brand: false,
       brand_label: "mi",
       brand_color: "#ff6900",
       power_entity: "",
@@ -1642,6 +1651,7 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "hint_text", selector: { text: {} } },
         { name: "show_hint", selector: { boolean: {} } },
         { name: "show_more_menu", selector: { boolean: {} } },
+        { name: "show_brand", selector: { boolean: {} } },
         { name: "brand_label", selector: { text: {} } },
         { name: "brand_color", selector: { text: {} } },
         { name: "entity", selector: { entity: { domain: ["remote", "media_player"] } } },
@@ -1715,6 +1725,7 @@ class TouchpadCardEditor extends HTMLElement {
         hint_text: "触控板提示文字",
         show_hint: "显示提示文字（默认关闭）",
         show_more_menu: "显示更多菜单",
+        show_brand: "显示品牌标识（默认关闭）",
         brand_label: "品牌标识文字",
         brand_color: "品牌标识颜色",
         folded_template: "折叠时显示模板",
@@ -1793,7 +1804,7 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
-const CARD_VERSION = "1.7.3";
+const CARD_VERSION = "1.7.4";
 
 console.info(
   `%c Touchpad Card %c v${CARD_VERSION} `,
