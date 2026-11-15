@@ -1,8 +1,13 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.7.1
+ * Version: 1.7.2
  * 
  * Changelog:
+ * v1.7.2 (2026-11-15):
+ *   - 默认不再显示「滑动控制上下左右，点击确定」等触控板提示文字
+ *   - show_hint 默认值改为 false；显式写 show_hint: true 仍可开启并配合 hint_text 自定义
+ *   - 触控板保留四向渐隐箭头与操作反馈图标，交互功能不变
+ *
  * v1.7.1 (2026-11-15):
  *   - 修复触控板左右滑动时误触 HA 仪表盘视图切换（手势事件冒泡）
  *   - 卡片层拦截 touch/mouse/pointer 冒泡，window 捕获阶段兜底拦截 touch/mouse
@@ -96,7 +101,7 @@ class TouchpadCard extends HTMLElement {
       layout: "auto",
       block_view_swipe: true,
       hint_text: "滑动控制上下左右，点击确定",
-      show_hint: true,
+      show_hint: false,
       show_more_menu: true,
       brand_label: "mi",
       brand_color: "#ff6900",
@@ -816,7 +821,8 @@ class TouchpadCard extends HTMLElement {
     const rawBrand = String(this.config.brand_color || "");
     const brandColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(rawBrand) ? rawBrand : "#ff6900";
     const brandLabel = String(this.config.brand_label ?? "mi");
-    const showHint = this.config.show_hint !== false;
+    // v1.7.2: 提示文字默认关闭；只有显式 show_hint: true 且文字非空才渲染
+    const showHint = this.config.show_hint === true && hintText.trim() !== "";
     const showMoreMenu = this.config.show_more_menu !== false;
     const menuOpen = Boolean(this._menuOpen) && showMoreMenu;
     const dock = this._bottomDock === "left" ? "dock-left" : "dock-right";
@@ -1607,7 +1613,7 @@ class TouchpadCardEditor extends HTMLElement {
       layout: "auto",
       block_view_swipe: true,
       hint_text: "滑动控制上下左右，点击确定",
-      show_hint: true,
+      show_hint: false,
       show_more_menu: true,
       brand_label: "mi",
       brand_color: "#ff6900",
@@ -1739,7 +1745,7 @@ class TouchpadCardEditor extends HTMLElement {
         name: "名称",
         appearance: "外观",
         hint_text: "触控板提示文字",
-        show_hint: "显示提示文字",
+        show_hint: "显示提示文字（默认关闭）",
         show_more_menu: "显示更多菜单",
         brand_label: "品牌标识文字",
         brand_color: "品牌标识颜色",
@@ -1819,7 +1825,7 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
-const CARD_VERSION = "1.7.1";
+const CARD_VERSION = "1.7.2";
 
 console.info(
   `%c Touchpad Card %c v${CARD_VERSION} `,
