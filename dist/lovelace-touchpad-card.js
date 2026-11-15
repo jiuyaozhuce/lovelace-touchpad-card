@@ -923,7 +923,7 @@ class TouchpadCard extends HTMLElement {
             ${this.config.show_buttons ? `
               <div class="bottom-controls ${dock}">
                 ${this._button("home", "mdi:home-outline", "主页", "circle-btn nav-home")}
-                ${this._button("back", "mdi:undo", "返回", "pill-btn")}
+                ${this._button("back", "mdi:undo", "返回", "circle-btn nav-back")}
                 ${this._button("menu", "mdi:menu", "菜单", "circle-btn nav-menu")}
               </div>
             ` : ""}
@@ -946,6 +946,9 @@ class TouchpadCard extends HTMLElement {
             /* 表面一律透明，靠 1px 细线勾勒，避免实心色块 */
             --tc-surface: transparent;
             --tc-pad: transparent;
+            /* v1.7.5：圆形按钮 / 顶部横栏使用与 HA 页面背景相近的灰底块（随主题明暗自适应，避免纯黑） */
+            --tc-btn-bg: color-mix(in srgb, var(--tc-text) 8%, var(--tc-bg));
+            --tc-head-bg: var(--tc-btn-bg);
             --tc-radius-card: var(--ha-border-radius-xl, 16px);
             --tc-radius-pad: var(--ha-border-radius-lg, 12px);
             --tc-radius-menu: var(--ha-border-radius-lg, 12px);
@@ -990,6 +993,8 @@ class TouchpadCard extends HTMLElement {
             --tc-line: rgba(255, 255, 255, 0.14);
             --tc-line-hover: rgba(255, 255, 255, 0.32);
             --tc-press: rgba(255, 255, 255, 0.07);
+            --tc-btn-bg: #2b2b2b;
+            --tc-head-bg: #2b2b2b;
           }
           ha-card.touchpad-root.appearance-light {
             --tc-bg: #ffffff;
@@ -1004,6 +1009,8 @@ class TouchpadCard extends HTMLElement {
             --tc-line: rgba(0, 0, 0, 0.12);
             --tc-line-hover: rgba(3, 169, 244, 0.45);
             --tc-press: rgba(3, 169, 244, 0.07);
+            --tc-btn-bg: #f2f2f2;
+            --tc-head-bg: #f2f2f2;
           }
           .touchpad-card {
             position: relative;
@@ -1015,8 +1022,7 @@ class TouchpadCard extends HTMLElement {
             padding-bottom: var(--ha-space-4, 16px);
           }
           .touchpad-card.is-folded .remote-head {
-            border-bottom: 0;
-            padding-bottom: 0;
+            border-radius: var(--tc-radius-pad);
           }
           /* ---------- 顶部栏：返回 / 品牌+名称 / 更多 ---------- */
           .remote-head {
@@ -1024,9 +1030,11 @@ class TouchpadCard extends HTMLElement {
             grid-template-columns: 40px minmax(0, 1fr) 40px;
             align-items: center;
             gap: var(--ha-space-2, 8px);
-            min-height: 48px;
-            padding-bottom: var(--ha-space-2, 8px);
-            border-bottom: var(--tc-hairline) solid var(--tc-line);
+            box-sizing: border-box;
+            min-height: 52px;
+            padding: var(--ha-space-1, 4px) var(--ha-space-2, 8px);
+            border-radius: var(--tc-radius-pad);
+            background: var(--tc-head-bg);
             cursor: pointer;
           }
           .head-nav,
@@ -1099,7 +1107,7 @@ class TouchpadCard extends HTMLElement {
           .more-menu {
             display: none;
             position: absolute;
-            top: 60px;
+            top: 68px;
             right: 16px;
             z-index: 20;
             width: min(248px, calc(100% - 32px));
@@ -1175,7 +1183,7 @@ class TouchpadCard extends HTMLElement {
             box-sizing: border-box;
             padding: 0;
             border: var(--tc-hairline) solid var(--tc-line);
-            background: var(--tc-surface);
+            background: var(--tc-btn-bg);
             color: var(--tc-icon);
             font: inherit;
             cursor: pointer;
@@ -1201,9 +1209,6 @@ class TouchpadCard extends HTMLElement {
           }
           .circle-btn {
             border-radius: var(--ha-border-radius-circle, 50%);
-          }
-          .pill-btn {
-            border-radius: var(--ha-border-radius-pill, 999px);
           }
           .power-button.is-on {
             color: var(--tc-text);
@@ -1339,11 +1344,6 @@ class TouchpadCard extends HTMLElement {
             max-width: 96px;
             aspect-ratio: 1 / 1;
           }
-          .bottom-controls .pill-btn {
-            width: 100%;
-            min-height: 62px;
-            height: 100%;
-          }
           .bottom-controls.dock-left .nav-home {
             order: 3;
             grid-column: 3;
@@ -1352,7 +1352,7 @@ class TouchpadCard extends HTMLElement {
             order: 1;
             grid-column: 1;
           }
-          .bottom-controls.dock-left .pill-btn {
+          .bottom-controls.dock-left .nav-back {
             order: 2;
             grid-column: 2;
           }
@@ -1450,7 +1450,7 @@ class TouchpadCard extends HTMLElement {
           ha-card.touchpad-root.layout-wide .bottom-controls { grid-column: 3; }
           ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .nav-home,
           ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .nav-menu,
-          ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .pill-btn {
+          ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .nav-back {
             order: 0;
           }
           ha-card.touchpad-root.layout-wide .top-controls .circle-btn,
@@ -1463,13 +1463,6 @@ class TouchpadCard extends HTMLElement {
           }
           ha-card.touchpad-root.layout-wide .top-controls .circle-slot {
             height: clamp(48px, 76%, 64px);
-          }
-          ha-card.touchpad-root.layout-wide .bottom-controls .pill-btn {
-            width: clamp(48px, 76%, 64px);
-            min-width: 0;
-            height: 48px;
-            min-height: 48px;
-            flex: 0 0 auto;
           }
           ha-card.touchpad-root.layout-wide .remote-button ha-icon {
             --mdc-icon-size: 24px;
@@ -1804,7 +1797,7 @@ class TouchpadCardEditor extends HTMLElement {
 }
 
 
-const CARD_VERSION = "1.7.4";
+const CARD_VERSION = "1.7.5";
 
 console.info(
   `%c Touchpad Card %c v${CARD_VERSION} `,
