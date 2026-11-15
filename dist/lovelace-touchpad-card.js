@@ -1,8 +1,18 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.5.0
+ * Version: 1.6.0
  * 
  * Changelog:
+ * v1.6.0 (2026-11-15):
+ *   - 全新「小米电视遥控器」布局：顶部返回/品牌+设备名/更多菜单，
+ *     电源与音量±三枚大圆按钮，中央大触控板，底部主页/返回/菜单
+ *   - 触控板加入四向渐隐箭头与操作提示文字
+ *   - 次要按键（通知、信号源、设置、静音、播放控制、状态详情）收纳进更多菜单
+ *   - 完整保留滑动四方向、点击确定、倾斜换边、震动反馈、折叠模板、
+ *     电源状态判定、四种控制模式以及全部 command_* / button_* 配置
+ *   - 新增外观配置 appearance / hint_text / show_hint / show_more_menu /
+ *     brand_label / brand_color，默认深色，auto 跟随 HA 主题
+ *
  * v1.5.0 (2026-06-12):
  *   - 优化反馈图标样式，匹配 Home Assistant 官方设计风格
  *   - 减小反馈图标尺寸（76px → 56px）
@@ -62,6 +72,12 @@ class TouchpadCard extends HTMLElement {
       control_mode: "remote",
       remote_device: "",
       collapsed: true,
+      appearance: "dark",
+      hint_text: "滑动控制上下左右，点击确定",
+      show_hint: true,
+      show_more_menu: true,
+      brand_label: "mi",
+      brand_color: "#ff6900",
       show_buttons: true,
       show_volume: true,
       show_top_extra_buttons: true,
@@ -99,6 +115,7 @@ class TouchpadCard extends HTMLElement {
       ...config,
     };
     this._folded = Boolean(this.config.collapsed);
+    this._menuOpen = false;
     this._feedback = "";
     this._debug = "";
     this._foldedTemplateText = "";
@@ -146,18 +163,26 @@ class TouchpadCard extends HTMLElement {
   }
 
   getCardSize() {
-    return this._folded ? 1 : 5;
+    return this._folded ? 1 : 8;
   }
 
   _handleClick = (event) => {
     const button = event.target.closest("[data-action]");
     const header = event.target.closest("[data-toggle]");
     const moreInfo = event.target.closest("[data-more-info]");
+    const menuToggle = event.target.closest("[data-menu-toggle]");
     if (this._ignoreClickUntil && Date.now() < this._ignoreClickUntil) {
-      if (button || header || moreInfo) {
+      if (button || header || moreInfo || menuToggle) {
         event.preventDefault();
         event.stopPropagation();
       }
+      return;
+    }
+    if (menuToggle) {
+      event.preventDefault();
+      event.stopPropagation();
+      this._menuOpen = !this._menuOpen;
+      this.render(true);
       return;
     }
     if (moreInfo) {
@@ -171,6 +196,7 @@ class TouchpadCard extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
       this._folded = !this._folded;
+      this._menuOpen = false;
       this.render(true);
       return;
     }
@@ -178,7 +204,12 @@ class TouchpadCard extends HTMLElement {
 
     event.preventDefault();
     event.stopPropagation();
+    const closeMenu = Boolean(button.closest(".more-menu"));
     this._runAction(button.dataset.action);
+    if (closeMenu) {
+      this._menuOpen = false;
+      this.render(true);
+    }
   };
 
   _handlePointerDown = (event) => {
@@ -376,28 +407,27 @@ class TouchpadCard extends HTMLElement {
   }
 
   _syncPowerStateIcon() {
-    const icon = this.querySelector(".status-icon");
-    if (!icon || !this.config) return;
+    if (!this.config) return;
     const powerState = this._hass?.states?.[this.config.power_entity];
     const isPoweredOn = this._isPoweredOn(powerState);
-    icon.classList.toggle("is-on", isPoweredOn);
-    icon.style.color = isPoweredOn ? "var(--warning-color, #fdd835)" : "";
+    const icon = this.querySelector(".status-icon");
+    if (icon) {
+      icon.classList.toggle("is-on", isPoweredOn);
+      icon.style.color = isPoweredOn ? "var(--warning-color, #fdd835)" : "";
+    }
+    const powerButton = this.querySelector(".power-button");
+    if (powerButton) powerButton.classList.toggle("is-on", isPoweredOn);
   }
 
   _getExtraButtonClass(name) {
-    // 检查顶部额外按钮的状态实体，如果实体状态为 on 则添加 active 类
-    const entityKey = `${name}_entity`;
-    const entityId = this.config[entityKey];
-    if (!entityId) return "header-button";
+    const entityId = this.config[`${name}_entity`];
+    if (!entityId) return "";
     const state = this._hass?.states?.[entityId];
-    if (!state) return "header-button";
+    if (!state) return "";
     const stateStr = String(state.state ?? "").toLowerCase();
-    // 如果状态是 on、playing、paused、idle、home 等则认为已激活
-    const activeStates = ["on", "playing", "paused", "idle", "home", "standby"];
-    if (activeStates.includes(stateStr)) {
-      return "header-button active";
-    }
-    return "header-button";
+    return ["on", "playing", "paused", "idle", "home", "standby"].includes(stateStr)
+      ? "is-active"
+      : "";
   }
 
   _looksNumeric(value) {
@@ -633,6 +663,15 @@ class TouchpadCard extends HTMLElement {
     const state = this._hass?.states?.[this.config.entity];
     const powerState = this._hass?.states?.[this.config.power_entity];
     const isPoweredOn = this._isPoweredOn(powerState);
+    const appearance = this.config.appearance === "auto" ? "auto" : "dark";
+    const hintText = String(this.config.hint_text ?? "滑动控制上下左右，点击确定");
+    const rawBrand = String(this.config.brand_color || "");
+    const brandColor = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(rawBrand) ? rawBrand : "#ff6900";
+    const brandLabel = String(this.config.brand_label ?? "mi");
+    const showHint = this.config.show_hint !== false;
+    const showMoreMenu = this.config.show_more_menu !== false;
+    const menuOpen = Boolean(this._menuOpen) && showMoreMenu;
+    const dock = this._bottomDock === "left" ? "dock-left" : "dock-right";
     const key = JSON.stringify({
       config: this.config,
       folded: this._folded,
@@ -644,100 +683,484 @@ class TouchpadCard extends HTMLElement {
       power_attributes: powerState?.attributes,
       is_powered_on: isPoweredOn,
       dock: this._bottomDock,
+      menu_open: menuOpen,
     });
     if (!force && key === this._lastRenderKey) return;
     this._lastRenderKey = key;
 
+    const menuItems = [];
+    if (this.config.show_top_extra_buttons) {
+      menuItems.push(this._menuItem("extra_1", this.config.top_extra_1_icon || "mdi:information-outline", this.config.top_extra_1_label || "信息", this._getExtraButtonClass("extra_1")));
+      menuItems.push(this._menuItem("extra_2", this.config.top_extra_2_icon || "mdi:microphone", this.config.top_extra_2_label || "语音", this._getExtraButtonClass("extra_2")));
+    }
+    menuItems.push(this._menuItem("settings", "mdi:cog-outline", "设置"));
+    menuItems.push(this._menuItem("mute", "mdi:volume-off", "静音"));
+    menuItems.push(this._menuItem("play_pause", "mdi:play-pause", "播放/暂停"));
+    menuItems.push(this._menuItem("play", "mdi:play", "播放"));
+    menuItems.push(this._menuItem("pause", "mdi:pause", "暂停"));
+    menuItems.push(`
+      <button class="menu-item" data-more-info title="开机状态详情" aria-label="开机状态详情">
+        <ha-icon class="status-icon" icon="${this._escape(this.config.icon || "mdi:information-outline")}"></ha-icon>
+        <span>状态详情</span>
+      </button>
+    `);
+
+    const circleSlot = `<span class="circle-slot"></span>`;
+    const volumeButtons = this.config.show_volume
+      ? this._button("volume_down", "mdi:volume-minus", "音量-", "circle-btn")
+        + this._button("volume_up", "mdi:volume-plus", "音量+", "circle-btn")
+      : circleSlot + circleSlot;
+
     this.innerHTML = `
-      <ha-card>
-        <div class="touchpad-card">
-          <div class="header" data-toggle>
-            <button class="icon-button status-icon${isPoweredOn ? " is-on" : ""}" data-more-info title="开机状态详情" aria-label="开机状态详情">
-              <ha-icon icon="${this._escape(this.config.icon || "mdi:remote-tv")}"></ha-icon>
+      <ha-card class="touchpad-root${appearance === "auto" ? " appearance-auto" : ""}">
+        <div class="touchpad-card${this._folded ? " is-folded" : ""}" style="--brand-color: ${brandColor}">
+          <div class="remote-head" data-toggle title="收起 / 展开">
+            <button class="head-nav" title="${this._folded ? "展开" : "收起"}" aria-label="${this._folded ? "展开" : "收起"}">
+              <ha-icon icon="${this._folded ? "mdi:chevron-down" : "mdi:arrow-left"}"></ha-icon>
             </button>
-            <div class="heading">
-              <div class="title-row">
-                <div class="title">${this._escape(this.config.name)}</div>
-                ${this._folded ? this._foldedTemplate() : ""}
-              </div>
+            <div class="head-title">
+              <span class="brand-logo">${this._escape(brandLabel)}</span>
+              <span class="title">${this._escape(this.config.name)}</span>
+              ${this._folded ? this._foldedTemplate() : ""}
             </div>
-            <div class="top-actions">
-              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_1", this.config.top_extra_1_icon || "mdi:information-outline", this.config.top_extra_1_label || "信息", this._getExtraButtonClass("extra_1")) : ""}
-              ${!this._folded && this.config.show_top_extra_buttons ? this._button("extra_2", this.config.top_extra_2_icon || "mdi:microphone", this.config.top_extra_2_label || "语音", this._getExtraButtonClass("extra_2")) : ""}
-              ${this._button("settings", "mdi:cog", "设置", "header-button")}
-              ${this._button("mute", "mdi:volume-off", "静音", "header-button")}
-              ${this._button("power", "mdi:power", "电源", "header-button power-button")}
-            </div>
+            ${!this._folded && showMoreMenu ? `
+              <button class="head-more" data-menu-toggle title="更多" aria-label="更多">
+                <ha-icon icon="mdi:dots-vertical"></ha-icon>
+              </button>
+            ` : `<span class="head-more-slot"></span>`}
           </div>
           ${this._folded ? "" : `
-            <div class="touchpad-area">
+            ${showMoreMenu ? `<div class="more-menu${menuOpen ? " is-open" : ""}">${menuItems.join("")}</div>` : ""}
+            <div class="top-controls">
+              ${this._button("power", "mdi:power", "电源", `circle-btn power-button${isPoweredOn ? " is-on" : ""}`)}
+              ${volumeButtons}
+            </div>
+            <div class="touchpad-area${this._feedback ? " has-feedback" : ""}">
+              <div class="direction-arrows" aria-hidden="true">
+                <span class="arrow up"></span>
+                <span class="arrow down"></span>
+                <span class="arrow left"></span>
+                <span class="arrow right"></span>
+              </div>
+              ${showHint ? `<div class="hint-text">${this._escape(hintText)}</div>` : ""}
               ${this.config.debug ? `<div class="debug">${this._escape(this._debug)}</div>` : ""}
               ${this._feedback ? `<div class="feedback ${this._escape(this._feedback)}">${this._feedbackIcon(this._feedback)}</div>` : ""}
             </div>
-            <div class="bottom-actions ${this._bottomDock === "left" ? "dock-left" : "dock-right"}">
-              <div class="nav-actions">
-                ${this.config.show_buttons ? this._button("menu", "mdi:menu", "菜单") : ""}
-                ${this.config.show_buttons ? this._button("home", "mdi:home", "主页") : ""}
-                ${this.config.show_buttons ? this._button("back", "mdi:keyboard-return", "返回") : ""}
+            ${this.config.show_buttons ? `
+              <div class="bottom-controls ${dock}">
+                ${this._button("home", "mdi:home-outline", "主页", "circle-btn nav-home")}
+                ${this._button("back", "mdi:undo", "返回", "pill-btn")}
+                ${this._button("menu", "mdi:menu", "菜单", "circle-btn nav-menu")}
               </div>
-              <div class="volume-actions">
-                ${this.config.show_volume ? this._button("volume_down", "mdi:volume-medium", "音量-") : ""}
-                ${this.config.show_volume ? this._button("volume_up", "mdi:volume-high", "音量+") : ""}
-              </div>
-            </div>
+            ` : ""}
           `}
         </div>
         <style>
-          ha-card {
-            background: var(--ha-card-background, var(--card-background-color, var(--primary-background-color)));
-            color: var(--primary-text-color);
-            border-radius: var(--ha-card-border-radius, 12px);
+          ha-card.touchpad-root {
+            --tc-bg: #171717;
+            --tc-surface: #474747;
+            --tc-pad: #4c4c4c;
+            --tc-text: #f5f5f5;
+            --tc-muted: rgba(255, 255, 255, 0.52);
+            --tc-icon: rgba(255, 255, 255, 0.66);
+            --tc-arrow: rgba(255, 255, 255, 0.94);
+            --tc-menu-bg: #262626;
+            --tc-border: rgba(255, 255, 255, 0.10);
+            --tc-press: rgba(255, 255, 255, 0.10);
+            display: block;
+            background: var(--tc-bg);
+            color: var(--tc-text);
+            border-radius: 20px;
             overflow: hidden;
-            box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0, 0, 0, 0.18));
+            box-shadow: none;
+            border: 0;
+          }
+          ha-card.touchpad-root.appearance-auto {
+            --tc-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #fff)));
+            --tc-surface: color-mix(in srgb, var(--primary-text-color, #212121) 10%, transparent);
+            --tc-pad: color-mix(in srgb, var(--primary-text-color, #212121) 15%, transparent);
+            --tc-text: var(--primary-text-color, #212121);
+            --tc-muted: var(--secondary-text-color, #727272);
+            --tc-icon: var(--primary-text-color, #212121);
+            --tc-arrow: var(--primary-text-color, #212121);
+            --tc-menu-bg: var(--card-background-color, #fff);
+            --tc-border: var(--divider-color, rgba(0, 0, 0, 0.12));
+            --tc-press: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent);
           }
           .touchpad-card {
-            --touchpad-card-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color)));
-            --touchpad-pad-bg: var(--secondary-background-color, var(--primary-background-color));
-            --touchpad-border: var(--divider-color);
-            --touchpad-text: var(--primary-text-color);
-            --touchpad-muted: var(--secondary-text-color);
-            --touchpad-press: color-mix(in srgb, var(--primary-color) 18%, transparent);
-            --touchpad-danger: var(--error-color, #db4437);
-            background: var(--touchpad-card-bg);
-            padding: 14px 14px 12px;
+            position: relative;
+            padding: 14px 20px 24px;
             user-select: none;
+            -webkit-user-select: none;
           }
-          .header {
+          .touchpad-card.is-folded {
+            padding-bottom: 14px;
+          }
+          /* ---------- 顶部栏：返回 / 品牌+名称 / 更多 ---------- */
+          .remote-head {
+            display: grid;
+            grid-template-columns: 40px minmax(0, 1fr) 40px;
+            align-items: center;
+            gap: 8px;
+            min-height: 48px;
+            cursor: pointer;
+          }
+          .head-nav,
+          .head-more {
+            display: inline-grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--tc-text);
+            font: inherit;
+            cursor: pointer;
+            transition: background 140ms ease, transform 140ms ease;
+          }
+          .head-nav:hover,
+          .head-more:hover {
+            background: var(--tc-press);
+          }
+          .head-nav:active,
+          .head-more:active {
+            transform: scale(0.9);
+          }
+          .head-nav ha-icon,
+          .head-more ha-icon {
+            --mdc-icon-size: 24px;
+          }
+          .head-more-slot {
+            width: 40px;
+            height: 40px;
+          }
+          .head-title {
             display: flex;
             align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            min-height: 32px;
-          }
-          .heading {
-            flex: 1;
-            min-width: 0;
-          }
-          .title-row {
-            display: flex;
-            align-items: baseline;
+            justify-content: center;
             gap: 8px;
             min-width: 0;
             overflow: hidden;
           }
-          .title {
-            font-size: 14px;
-            font-weight: 650;
-            line-height: 1.2;
-            color: var(--touchpad-text);
+          .brand-logo {
+            display: inline-grid;
+            place-items: center;
             flex: 0 0 auto;
-            max-width: 55%;
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            background: var(--brand-color, #ff6900);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -0.6px;
+          }
+          .head-title .title {
+            flex: 0 1 auto;
+            min-width: 0;
+            font-size: 17px;
+            font-weight: 600;
+            line-height: 1.2;
+            color: var(--tc-text);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
           }
+          /* ---------- 更多菜单（收纳全部次要按键） ---------- */
+          .more-menu {
+            display: none;
+            position: absolute;
+            top: 60px;
+            right: 16px;
+            z-index: 20;
+            width: min(248px, calc(100% - 32px));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 4px;
+            padding: 8px;
+            border: 1px solid var(--tc-border);
+            border-radius: 14px;
+            background: var(--tc-menu-bg);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
+          }
+          .more-menu.is-open {
+            display: grid;
+          }
+          .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 38px;
+            padding: 6px 8px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--tc-text);
+            font: inherit;
+            font-size: 12px;
+            text-align: left;
+            cursor: pointer;
+            transition: background 120ms ease, transform 120ms ease;
+          }
+          .menu-item:hover {
+            background: var(--tc-press);
+          }
+          .menu-item:active {
+            transform: scale(0.96);
+          }
+          .menu-item ha-icon {
+            --mdc-icon-size: 19px;
+            flex: 0 0 auto;
+            color: var(--tc-icon);
+          }
+          .menu-item span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .menu-item.is-active ha-icon {
+            color: var(--success-color, #4caf50);
+          }
+          .menu-item .status-icon.is-on {
+            color: var(--warning-color, #fdd835);
+          }
+          /* ---------- 大圆按钮 / 胶囊按钮 ---------- */
+          .top-controls {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            justify-items: center;
+            gap: clamp(8px, 4%, 28px);
+            margin-top: clamp(18px, 6%, 32px);
+          }
+          .top-controls .circle-btn,
+          .top-controls .circle-slot {
+            width: 100%;
+            max-width: 68px;
+            aspect-ratio: 1 / 1;
+          }
+          .circle-slot {
+            display: block;
+          }
+          .remote-button {
+            display: inline-grid;
+            place-items: center;
+            padding: 0;
+            border: 0;
+            background: var(--tc-surface);
+            color: var(--tc-icon);
+            font: inherit;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 120ms ease, filter 140ms ease, box-shadow 140ms ease;
+          }
+          .remote-button ha-icon {
+            --mdc-icon-size: 28px;
+          }
+          .remote-button:hover {
+            filter: brightness(1.18);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+          }
+          .remote-button:active {
+            transform: scale(0.93);
+            filter: brightness(1.26);
+            box-shadow: none;
+          }
+          .circle-btn {
+            border-radius: 50%;
+          }
+          .pill-btn {
+            border-radius: 999px;
+          }
+          .power-button.is-on {
+            color: var(--tc-text);
+          }
+          /* ---------- 中央触控板 ---------- */
+          .touchpad-area {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 5 / 6;
+            min-height: 280px;
+            max-height: 620px;
+            margin-top: clamp(16px, 4%, 34px);
+            border-radius: 22px;
+            background: var(--tc-pad);
+            overflow: hidden;
+            touch-action: none;
+            transition: transform 200ms ease, filter 200ms ease, box-shadow 200ms ease;
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.04);
+          }
+          .touchpad-area.is-pressing {
+            transform: scale(0.988);
+            filter: brightness(1.08);
+            box-shadow: inset 0 4px 14px rgba(0, 0, 0, 0.16);
+          }
+          .direction-arrows {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            color: var(--tc-arrow);
+            transition: opacity 180ms ease;
+          }
+          .arrow {
+            position: absolute;
+            width: 54px;
+            height: 82px;
+            opacity: 0.92;
+          }
+          .arrow::before {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 40px;
+            background: linear-gradient(to top, transparent, currentColor);
+            opacity: 0.78;
+          }
+          .arrow::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 27px solid transparent;
+            border-right: 27px solid transparent;
+            border-bottom: 40px solid currentColor;
+          }
+          .arrow.up {
+            top: 11%;
+            left: 50%;
+            margin-left: -27px;
+          }
+          .arrow.down {
+            bottom: 11%;
+            left: 50%;
+            margin-left: -27px;
+            transform: rotate(180deg);
+          }
+          .arrow.left {
+            left: 4%;
+            top: 50%;
+            margin-top: -41px;
+            transform: rotate(-90deg);
+          }
+          .arrow.right {
+            right: 4%;
+            top: 50%;
+            margin-top: -41px;
+            transform: rotate(90deg);
+          }
+          .hint-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            color: var(--tc-muted);
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+            white-space: nowrap;
+            pointer-events: none;
+            transition: opacity 180ms ease;
+          }
+          .touchpad-area.has-feedback .direction-arrows,
+          .touchpad-area.has-feedback .hint-text {
+            opacity: 0.16;
+          }
+          .debug {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            z-index: 5;
+            color: var(--tc-muted);
+            font-size: 11px;
+            pointer-events: none;
+          }
+          /* ---------- 滑动反馈 ---------- */
+          .feedback {
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            display: grid;
+            place-items: center;
+            pointer-events: none;
+            color: var(--tc-text);
+            animation: touchpad-feedback 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          }
+          .feedback::before {
+            content: "";
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--tc-press) 0%, transparent 70%);
+            animation: feedback-glow 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          }
+          .feedback ha-icon {
+            --mdc-icon-size: 56px;
+            z-index: 1;
+            filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.22));
+            animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          }
+          @keyframes feedback-glow {
+            0% { opacity: 0; transform: scale(0.6); }
+            40% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0; transform: scale(1.4); }
+          }
+          @keyframes feedback-icon-enter {
+            0% { opacity: 0; transform: scale(0.8); }
+            60% { opacity: 1; transform: scale(1.02); }
+            100% { transform: scale(1); }
+          }
+          @keyframes touchpad-feedback {
+            0% { opacity: 0; transform: scale(0.9); }
+            12% { opacity: 1; transform: scale(1.01); }
+            28% { transform: scale(1); }
+            82% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.96); }
+          }
+          /* ---------- 底部三键 ---------- */
+          .bottom-controls {
+            display: grid;
+            grid-template-columns: 1fr 2.6fr 1fr;
+            align-items: center;
+            justify-items: center;
+            gap: clamp(10px, 3%, 28px);
+            margin-top: clamp(20px, 6%, 36px);
+          }
+          .bottom-controls .circle-btn {
+            width: 100%;
+            max-width: 96px;
+            aspect-ratio: 1 / 1;
+          }
+          .bottom-controls .pill-btn {
+            width: 100%;
+            min-height: 62px;
+            height: 100%;
+          }
+          .bottom-controls.dock-left .nav-home {
+            order: 3;
+            grid-column: 3;
+          }
+          .bottom-controls.dock-left .nav-menu {
+            order: 1;
+            grid-column: 1;
+          }
+          .bottom-controls.dock-left .pill-btn {
+            order: 2;
+            grid-column: 2;
+          }
+          /* ---------- 折叠态模板跑马灯 ---------- */
           .folded-template {
-            color: var(--touchpad-muted);
+            color: var(--tc-muted);
             font-size: 12px;
             line-height: 1.2;
             min-width: 0;
@@ -759,234 +1182,55 @@ class TouchpadCard extends HTMLElement {
             animation-play-state: paused;
           }
           .folded-template-copy {
-            color: var(--touchpad-muted);
-          }
-          .subtitle {
-            color: var(--secondary-text-color);
-            font-size: 12px;
-            margin-top: 3px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-          }
-          .top-actions,
-          .bottom-actions,
-          .nav-actions,
-          .volume-actions {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-          }
-          button {
-            border: 0;
-            background: none;
-            color: var(--primary-text-color);
-            font: inherit;
-          }
-          .icon-button,
-          .remote-button {
-            display: inline-grid;
-            place-items: center;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: transform 120ms ease, background 120ms ease, box-shadow 120ms ease;
-          }
-          .icon-button {
-            width: 32px;
-            height: 32px;
-            background: transparent;
-            color: var(--touchpad-text);
-          }
-          .remote-button {
-            width: 28px;
-            height: 28px;
-            min-height: 28px;
-            background: transparent;
-            color: var(--touchpad-text);
-          }
-          .remote-button ha-icon,
-          .icon-button ha-icon {
-            --mdc-icon-size: 22px;
-          }
-          .header-button {
-            width: 28px;
-            height: 28px;
-          }
-          .power-button {
-            color: var(--touchpad-danger);
-          }
-          .header-button.active {
-            color: var(--touchpad-success, #4caf50);
-          }
-          .status-icon.is-on {
-            color: var(--warning-color, #fdd835);
-          }
-          .remote-button:hover,
-          .icon-button:hover {
-            background: var(--touchpad-press);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-            border-color: var(--divider-color);
-            transform: translateY(-1px);
-          }
-          .remote-button:active,
-          .icon-button:active {
-            transform: scale(0.92) translateY(0);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            transition: all 80ms ease;
-          }
-          .touchpad-area {
-            position: relative;
-            min-height: 270px;
-            margin-top: 10px;
-            border: 1px solid var(--touchpad-border);
-            border-radius: 16px;
-            overflow: hidden;
-            background: rgba(245, 247, 250, 0.58);
-            background: color-mix(in srgb, var(--touchpad-pad-bg) 68%, transparent);
-            backdrop-filter: blur(2px);
-            touch-action: none;
-            /* 添加过渡效果 */
-            transition: all 200ms ease;
-            box-shadow: 
-              inset 0 1px 3px rgba(0, 0, 0, 0.04),
-              0 2px 8px rgba(0, 0, 0, 0.08);
-          }
-          /* 触控区域按下效果 */
-          .touchpad-area.is-pressing {
-            background-color: color-mix(in srgb, var(--touchpad-pad-bg) 82%, transparent);
-            box-shadow: 
-              inset 0 3px 8px rgba(0, 0, 0, 0.08),
-              0 1px 4px rgba(0, 0, 0, 0.06);
-            transform: scale(0.99);
-          }
-          .debug {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            color: var(--touchpad-muted);
-            font-size: 12px;
-          }
-          .feedback {
-            position: absolute;
-            inset: 0;
-            display: grid;
-            place-items: center;
-            pointer-events: none;
-            color: var(--primary-color);
-            animation: touchpad-feedback 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-          }
-          /* 科技感背景光晕 */
-          .feedback::before {
-            content: '';
-            position: absolute;
-            width: 96px;
-            height: 96px;
-            background: radial-gradient(
-              circle,
-              color-mix(in srgb, var(--primary-color) 12%, transparent) 0%,
-              transparent 70%
-            );
-            border-radius: 50%;
-            animation: feedback-glow 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-          }
-          @keyframes feedback-glow {
-            0% {
-              opacity: 0;
-              transform: scale(0.6);
-            }
-            40% {
-              opacity: 1;
-              transform: scale(1.1);
-            }
-            100% {
-              opacity: 0;
-              transform: scale(1.4);
-            }
-          }
-          .feedback ha-icon {
-            --mdc-icon-size: 56px;
-            filter: 
-              drop-shadow(0 1px 2px rgba(0, 0, 0, 0.06))
-              drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
-            animation: feedback-icon-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            z-index: 1;
-          }
-          @keyframes feedback-icon-enter {
-            0% {
-              opacity: 0;
-              transform: scale(0.8);
-            }
-            60% {
-              opacity: 1;
-              transform: scale(1.02);
-            }
-            100% {
-              transform: scale(1);
-            }
-          }
-          .bottom-actions {
-            justify-content: space-between;
-            margin-top: 8px;
-            min-height: 28px;
-            transition: justify-content 180ms ease, transform 180ms ease;
-          }
-          .bottom-actions.dock-left {
-            justify-content: space-between;
-          }
-          .bottom-actions.dock-right {
-            justify-content: space-between;
-          }
-          .bottom-actions.dock-right .nav-actions {
-            order: 2;
-            margin-left: 0;
-          }
-          .bottom-actions.dock-right .volume-actions {
-            order: 1;
-          }
-          .bottom-actions.dock-left .nav-actions {
-            order: 1;
-            margin-left: 42px;
-          }
-          .bottom-actions.dock-left .volume-actions {
-            order: 2;
-          }
-          @keyframes touchpad-feedback {
-            0% {
-              opacity: 0;
-              transform: scale(0.9);
-            }
-            12% {
-              opacity: 1;
-              transform: scale(1.01);
-            }
-            28% {
-              transform: scale(1);
-            }
-            82% {
-              opacity: 1;
-              transform: scale(1);
-            }
-            100% {
-              opacity: 0;
-              transform: scale(0.96);
-            }
+            color: var(--tc-muted);
           }
           @keyframes folded-template-marquee {
             0%, 12% { transform: translateX(0); }
             88%, 100% { transform: translateX(calc(-50% - 12px)); }
           }
           @media (max-width: 480px) {
+            .touchpad-card {
+              padding: 10px 16px 20px;
+            }
+            .remote-head {
+              min-height: 44px;
+            }
+            .head-title .title {
+              font-size: 16px;
+            }
             .touchpad-area {
               min-height: 240px;
+              border-radius: 18px;
+            }
+            .hint-text {
+              font-size: 12px;
+            }
+            .arrow {
+              width: 44px;
+              height: 68px;
+            }
+            .arrow::before {
+              width: 12px;
+              height: 32px;
+            }
+            .arrow::after {
+              border-left-width: 22px;
+              border-right-width: 22px;
+              border-bottom-width: 34px;
+            }
+            .arrow.up { margin-left: -22px; }
+            .arrow.down { margin-left: -22px; }
+            .arrow.left { margin-top: -34px; }
+            .arrow.right { margin-top: -34px; }
+            .remote-button ha-icon {
+              --mdc-icon-size: 24px;
             }
           }
         </style>
       </ha-card>
     `;
     this._syncPowerStateIcon();
-    
-    // 保存触控区域的引用
-    this._touchpadArea = this.querySelector('.touchpad-area');
+    this._touchpadArea = this.querySelector(".touchpad-area");
   }
 
   _foldedTemplate() {
@@ -1008,6 +1252,15 @@ class TouchpadCard extends HTMLElement {
     return `
       <button class="remote-button ${extraClass}" data-action="${this._escape(action)}" title="${this._escape(label)}" aria-label="${this._escape(label)}">
         <ha-icon icon="${this._escape(icon)}"></ha-icon>
+      </button>
+    `;
+  }
+
+  _menuItem(action, icon, label, extraClass = "") {
+    return `
+      <button class="menu-item ${extraClass}" data-action="${this._escape(action)}" title="${this._escape(label)}" aria-label="${this._escape(label)}">
+        <ha-icon icon="${this._escape(icon)}"></ha-icon>
+        <span>${this._escape(label)}</span>
       </button>
     `;
   }
@@ -1059,6 +1312,12 @@ class TouchpadCardEditor extends HTMLElement {
       icon: "mdi:remote-tv",
       folded_template: "",
       collapsed: true,
+      appearance: "dark",
+      hint_text: "滑动控制上下左右，点击确定",
+      show_hint: true,
+      show_more_menu: true,
+      brand_label: "mi",
+      brand_color: "#ff6900",
       power_entity: "",
       power_state_mode: "auto",
       power_on_states: "on,playing,paused,idle,home,standby",
@@ -1102,6 +1361,15 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "folded_template", selector: { text: { multiline: true } } },
         { name: "collapsed", selector: { boolean: {} } },
         { name: "icon", selector: { icon: {} } },
+        { name: "appearance", selector: { select: { options: [
+          { value: "dark", label: "深色遥控器（默认）" },
+          { value: "auto", label: "跟随 HA 主题" },
+        ] } } },
+        { name: "hint_text", selector: { text: {} } },
+        { name: "show_hint", selector: { boolean: {} } },
+        { name: "show_more_menu", selector: { boolean: {} } },
+        { name: "brand_label", selector: { text: {} } },
+        { name: "brand_color", selector: { text: {} } },
         { name: "entity", selector: { entity: { domain: ["remote", "media_player"] } } },
         { name: "control_mode", selector: { select: { options: [
           { value: "remote", label: "普通红外 remote" },
@@ -1169,6 +1437,12 @@ class TouchpadCardEditor extends HTMLElement {
       ];
       this._form.computeLabel = (schema) => ({
         name: "名称",
+        appearance: "外观",
+        hint_text: "触控板提示文字",
+        show_hint: "显示提示文字",
+        show_more_menu: "显示更多菜单",
+        brand_label: "品牌标识文字",
+        brand_color: "品牌标识颜色",
         folded_template: "折叠时显示模板",
         collapsed: "默认折叠",
         icon: "图标",
@@ -1246,7 +1520,7 @@ class TouchpadCardEditor extends HTMLElement {
 
 
 console.info(
-  `%c Touchpad Card %c v1.5.0 `,
+  `%c Touchpad Card %c v1.6.0 `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );
@@ -1263,7 +1537,7 @@ if (!window.customCards.some((card) => card.type === "touchpad-card")) {
   window.customCards.push({
     type: "touchpad-card",
     name: "触控遥控器",
-    description: "支持滑动、点击、双击、长按和遥控按键的触控板卡片。",
+    description: "小米遥控器风格的滑动触控板卡片，支持点击、倾斜与自定义命令。",
     preview: true,
   });
 }

@@ -1,212 +1,196 @@
-# Touchpad Card (触控遥控器卡片) v1.4.2
+# Touchpad Card（触控遥控器卡片）v1.6.0
 
-一个支持触控手势的 Home Assistant 遥控器卡片，支持滑动、点击、长按等操作。
+一个支持滑动手势的 Home Assistant 遥控器卡片。**v1.6.0 起采用「小米电视遥控器」布局**：深色面板、大圆按钮、中央大触控板。
 
-![Touchpad Card](https://via.placeholder.com/400x200/03a9f4/ffffff?text=Touchpad+Card)
+> 仓库内的 `preview-v1.6.0.html` 是单文件自包含预览页，直接用浏览器打开即可看到新版外观（预览页用 Unicode 近似图标，HA 里显示真正的 MDI 图标）。
 
-## 最新版本
+## 界面布局
 
-**v1.4.2** (2026-06-12)
+```
+┌─────────────────────────────────┐
+│  ←         [mi] 小米电视      ⋮  │  顶部栏：收起/展开 · 品牌标+设备名 · 更多
+│                                 │
+│    (电源)      (音量−)    (音量＋) │  三枚大圆按钮
+│                                 │
+│  ┌───────────────────────────┐  │
+│  │            ▲              │  │
+│  │                           │  │  中央触控板
+│  │  ◀  滑动控制上下左右，点击确定 ▶  │  │  四向渐隐箭头 + 提示文字
+│  │            ▼              │  │  上下左右滑动 / 点击确定
+│  └───────────────────────────┘  │
+│                                 │
+│   (主页)   ╭── 返回 ──╮   (菜单) │  底部三键
+└─────────────────────────────────┘
+```
 
-### 🐛 Bug 修复
-- 修复语法错误（删除文件末尾非法的反斜杠字符）
-- 修复 `button` 模式下按钮不起作用的问题
-- 修复按钮配置读取逻辑
-
-### ✨ 新功能
-- 添加对 `command_*` 配置的支持（用于 `extra_1`, `extra_2` 等自定义按钮）
-- 改进错误提示，当按钮没有配置操作时会显示调试信息
-
-### 📝 完整更新日志
-查看 [GitHub Releases](https://github.com/jiuyaozhuce/lovelace-touchpad-card/releases)
+「⋮ 更多」菜单收纳了所有次要按键，功能一个不少：通知（`extra_1`）、信号源（`extra_2`）、设置、静音、播放/暂停、播放、暂停、开机状态详情。
 
 ## 功能特点
 
-- 🎯 支持滑动手势（上、下、左、右）
-- 👆 支持点击、双击、长按
-- 📱 响应式设计，支持移动端
-- 🎨 可自定义样式和图标
-- 🔧 支持多种控制模式：
-  - **红外 Remote 模式** - 控制 `remote.xxx` 实体
-  - **Android TV Remote 模式** - 控制 Android TV
-  - **ADB 模式** - 通过 ADB 命令控制
-  - **按钮模式** - 触发 `button.xxx` 实体（新增！）
-- 📊 支持模板显示
-- 🔔 触觉反馈支持
+- 🎯 触控板上下左右滑动 + 点击确定，滑动时显示方向反馈与光晕
+- 📱 手机左倾时底部「主页 / 菜单」左右互换（`tilt_controls`），右倾恢复
+- 🔔 震动反馈（两段式脉冲）、按钮与触控板按压动效
+- 📊 折叠态 + `folded_template` 模板跑马灯
+- ⚡ 电源状态判定：自动 / 按状态 / 按数值阈值
+- 🔧 四种控制模式：`remote`（红外）、`androidtv_remote`、`adb`、`button`
+- 🎨 深色外观为默认，可切换 `appearance: auto` 跟随 HA 主题
+- 🧩 全部 `command_*` / `button_*` / `service_data` / `command_play*` 配置继续可用
 
 ## 安装方法
 
-### 方法一：通过 HACS（推荐）
+### HACS（推荐）
 
-1. 打开 HACS 页面
-2. 点击右上角的三个点
-3. 选择 "自定义仓库"
-4. 添加仓库：`https://github.com/jiuyaozhuce/lovelace-touchpad-card`
-5. 选择类别：`Lovelace`
-6. 点击 "添加"
-7. 在 HACS 中搜索 "Touchpad Card" 并安装
+1. HACS → 右上角三个点 → 自定义仓库
+2. 添加 `https://github.com/jiuyaozhuce/lovelace-touchpad-card`，类别 `Lovelace`
+3. 搜索 `Touchpad Card` 并安装，安装后刷新浏览器缓存
 
-### 方法二：手动安装
+### 手动
 
-1. 下载 `lovelace-touchpad-card.js` 文件
-2. 将其放到 `config/www/community/lovelace-touchpad-card/` 目录
-3. 在 Lovelace 资源中添加：
-   ```yaml
-   url: /local/community/lovelace-touchpad-card/lovelace-touchpad-card.js
-   type: module
-   ```
+把 `lovelace-touchpad-card.js`（或 `dist/` 里同一份文件）放到 `config/www/community/lovelace-touchpad-card/`，并在 Lovelace 资源中添加：
+
+```yaml
+url: /local/community/lovelace-touchpad-card/lovelace-touchpad-card.js
+type: module
+```
+
+> 手动覆盖文件后记得把资源 URL 的 `?v=` 版本号改一下，否则浏览器会用旧缓存。
 
 ## 配置
 
-### 基础配置
+### 最简配置
 
 ```yaml
 type: custom:touchpad-card
-name: 客厅电视遥控器
+name: 小米电视
 entity: remote.living_room_tv
-icon: mdi:remote-tv
 ```
 
-### 完整配置示例
+### 完整示例（与「影音」仪表盘电视标签一致）
 
 ```yaml
 type: custom:touchpad-card
-name: 客厅电视遥控器
-entity: remote.living_room_tv
-icon: mdi:remote-tv
-collapsed: true
-power_entity: media_player.living_room_tv
-power_state_mode: auto
-control_mode: remote
-remote_device: ""
+name: 小米电视
+icon: mdi:television
+entity: binary_sensor.tv_adb_online
+power_entity: binary_sensor.tv_adb_online
+power_state_mode: state
+power_on_states: "on"
+control_mode: button
+collapsed: false
 show_buttons: true
 show_volume: true
 show_top_extra_buttons: true
-default_remote_commands: true
+top_extra_1_label: 通知
+top_extra_1_icon: mdi:message-text-outline
+top_extra_2_label: 信号源
+top_extra_2_icon: mdi:import
 swipe_threshold: 36
 tilt_controls: true
-tilt_threshold: 18
 vibrate: true
-top_extra_1_label: 信息
-top_extra_1_icon: mdi:information-outline
-top_extra_2_label: 语音
-top_extra_2_icon: mdi:microphone
+appearance: dark
+hint_text: 滑动控制上下左右，点击确定
+command_up:
+  service: shell_command.tv_key
+  data: { key: up }
+command_down:
+  service: shell_command.tv_key
+  data: { key: down }
+command_left:
+  service: shell_command.tv_key
+  data: { key: left }
+command_right:
+  service: shell_command.tv_key
+  data: { key: right }
+command_ok:
+  service: shell_command.tv_key
+  data: { key: ok }
+command_back:
+  service: shell_command.tv_key
+  data: { key: back }
+command_home:
+  service: shell_command.tv_key
+  data: { key: home }
+command_menu:
+  service: shell_command.tv_key
+  data: { key: menu }
+command_power:
+  service: shell_command.tv_key
+  data: { key: shutdown }
+command_volume_up:
+  service: shell_command.tv_key
+  data: { key: volumeup }
+command_volume_down:
+  service: shell_command.tv_key
+  data: { key: volumedown }
+command_mute:
+  service: shell_command.tv_key
+  data: { key: mute }
+command_extra_1:
+  service: shell_command.tv_key
+  data: { key: notice }
+command_extra_2:
+  service: shell_command.tv_key
+  data: { key: input }
 ```
 
-### 按钮模式配置示例（新增）
-
-```yaml
-type: custom:touchpad-card
-name: 客厅电视遥控器
-control_mode: button
-button_up: button.tv_up
-button_down: button.tv_down
-button_ok: button.tv_ok
-button_left: button.tv_left
-button_right: button.tv_right
-button_back: button.tv_back
-button_home: button.tv_home
-button_menu: button.tv_menu
-button_power: button.tv_power
-button_volume_up: button.tv_volume_up
-button_volume_down: button.tv_volume_down
-button_mute: button.tv_mute
-```
-
-## 配置选项
+## 配置项
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `name` | string | - | 卡片名称 |
-| `entity` | string | - | 遥控实体（remote 或 media_player） |
-| `icon` | string | `mdi:remote-tv` | 卡片图标 |
-| `collapsed` | boolean | `true` | 默认是否折叠 |
+| `name` | string | 客厅电视遥控器 | 顶部显示的设备名 |
+| `icon` | string | `mdi:remote-tv` | 状态详情图标 / 反馈图标 |
+| `entity` | string | - | 遥控实体（`remote` / `media_player`） |
 | `power_entity` | string | - | 开机状态实体 |
-| `control_mode` | string | `remote` | 控制模式：`remote`/`androidtv_remote`/`adb`/`button` |
-| `remote_device` | string | - | 红外 remote 的 device 名称 |
-| `show_buttons` | boolean | `true` | 显示底部导航按键 |
-| `show_volume` | boolean | `true` | 显示音量按键 |
+| `power_state_mode` | string | `auto` | `auto` / `state` / `threshold` |
+| `power_on_states` | string | `on,playing,paused,idle,home,standby` | 判定为开机的状态 |
+| `power_threshold` | number | `0` | 数值模式阈值 |
+| `control_mode` | string | `remote` | `remote` / `androidtv_remote` / `adb` / `button` |
+| `remote_device` | string | - | 红外 remote 的 device |
 | `default_remote_commands` | boolean | `true` | 未配置时自动发送默认命令 |
+| `collapsed` | boolean | `true` | 默认折叠 |
+| `folded_template` | string | - | 折叠时显示的模板 |
+| `show_buttons` | boolean | `true` | 显示底部三键 |
+| `show_volume` | boolean | `true` | 显示顶部音量± |
+| `show_top_extra_buttons` | boolean | `true` | 在「更多」菜单显示两个额外按键 |
+| `top_extra_1_label` / `top_extra_1_icon` / `top_extra_1_entity` | string | 信息 | 额外按键 1 |
+| `top_extra_2_label` / `top_extra_2_icon` / `top_extra_2_entity` | string | 语音 | 额外按键 2 |
 | `swipe_threshold` | number | `36` | 滑动触发阈值（像素） |
-| `tilt_controls` | boolean | `true` | 启用手机倾斜控制 |
-| `vibrate` | boolean | `true` | 启用震动反馈 |
-| `button_*` | string | - | 按钮模式下的按钮实体（如 `button_up`、`button_ok` 等） |
+| `tilt_controls` | boolean | `true` | 启用倾斜换边 |
+| `tilt_threshold` / `tilt_restore_threshold` | number | `18` / `32` | 倾斜触发 / 恢复角度 |
+| `vibrate` | boolean | `true` | 震动反馈 |
+| `debug` | boolean | `false` | 显示调试信息 |
+| `command_*` | object / string | - | 各动作的自定义服务调用 |
+| `button_*` | string | - | `button` 模式下的按钮实体 |
 
-## 控制模式详解
+### v1.6.0 新增外观项
 
-### 1. Remote 模式（默认）
-适用于普通红外遥控器，使用 `remote.send_command` 服务。
+| 选项 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `appearance` | `dark` / `auto` | `dark` | `dark` 为小米遥控器深色；`auto` 跟随 HA 主题变量 |
+| `hint_text` | string | `滑动控制上下左右，点击确定` | 触控板中央提示文字 |
+| `show_hint` | boolean | `true` | 是否显示提示文字 |
+| `show_more_menu` | boolean | `true` | 是否显示「⋮ 更多」菜单 |
+| `brand_label` | string | `mi` | 顶部橙色标识内文字 |
+| `brand_color` | string | `#ff6900` | 顶部标识背景色（仅接受 hex） |
 
-### 2. Android TV Remote 模式
-适用于 Android TV，使用标准的 KeyEvent 命令。
+## 升级说明（v1.5.0 → v1.6.0）
 
-### 3. ADB 模式
-通过 ADB 命令控制 Android 设备，使用 `androidtv.adb_command` 服务。
-
-### 4. Button 模式（新增）
-直接触发 Home Assistant 中的按钮实体，使用 `button.press` 服务。
-
-适用于设备通过按钮实体控制的情况，例如：
-- 智能电视的按钮实体
-- 自定义脚本的按钮
-- 任何支持 `button.press` 的实体
-
-## 自定义命令
-
-你可以为各个操作自定义命令：
-
-```yaml
-type: custom:touchpad-card
-entity: remote.living_room_tv
-command_up: "UP"
-command_down: "DOWN"
-command_left: "LEFT"
-command_right: "RIGHT"
-command_ok: "OK"
-command_back: "BACK"
-command_home: "HOME"
-command_menu: "MENU"
-```
-
-## 模板支持
-
-你可以在折叠状态下显示自定义模板：
-
-```yaml
-type: custom:touchpad-card
-folded_template: |
-  {% set state = states('media_player.living_room_tv') %}
-  当前状态：{{ state }}
-```
+- **纯布局 / 样式改造，原有 YAML 配置无需任何改动**，所有动作与命令照常生效。
+- 原来挤在头部的一排小图标按钮（通知、信号源、设置、静音、电源）已拆分：电源与音量±变成顶部三枚大圆按钮，其余收进「⋮ 更多」菜单。
+- `show_top_extra_buttons` 现在控制的是「更多」菜单里的两个额外按键；`show_buttons` / `show_volume` 含义不变。
+- 点击顶部「←」或标题行可收起 / 展开卡片；折叠态仍支持 `folded_template`。
+- 升级后请刷新浏览器，或在资源 URL 后追加新的 `?v=` 版本号。
 
 ## 疑难解答
 
-**Q: 卡片不显示？**
-- 检查实体 ID 是否正确
-- 确认 JS 文件已正确加载
-- 查看浏览器控制台是否有错误
+**卡片不显示？** 检查实体 ID、JS 是否加载、浏览器控制台错误。
 
-**Q: 滑动不灵敏？**
-- 调整 `swipe_threshold` 参数
-- 检查设备触控屏是否正常工作
+**样式还是旧的？** 浏览器缓存了旧 JS；HACS 重装或手动修改 `?v=` 后强刷。
 
-**Q: HACS 找不到卡片？**
-- 确认已正确添加自定义仓库
-- 检查 `hacs.json` 配置是否正确
+**滑动不灵敏？** 调小 `swipe_threshold`。
 
-**Q: 按钮模式不工作？**
-- 确认按钮实体存在且可用
-- 检查实体 ID 是否正确
-- 查看 Home Assistant 日志
-
-## 贡献
-
-欢迎提交 Issue 和 Pull Request！
+**按钮无反应？** 确认 `command_*` / `button_*` 已配置，或开启 `default_remote_commands`；打开 `debug` 看提示。
 
 ## 许可证
 
-MIT License
-
-## 支持
-
-如果你觉得这个卡片有用，请给我一个 ⭐️！
+MIT
