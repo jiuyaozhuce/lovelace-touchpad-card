@@ -256,7 +256,7 @@ v1.7.1 因此做了两层拦截：
 
 ## 升级说明（v1.7.2 → v1.7.3）
 
-参照 [Home Assistant Design](https://design.home-assistant.io/) 与 [Theming and design tokens](https://contributors.home-assistant.io/frontend/architecture/theming/) 做细线化改造：
+参照 [Home Assistant Design](https://contributors.home-assistant.io/design/)（原 design.home-assistant.io 已迁移）、[Foundations: Color / Typography / Spacing](https://contributors.home-assistant.io/design/foundations/) 与 [Theming and design tokens](https://contributors.home-assistant.io/frontend/architecture/theming/) 做细线化改造：
 
 - **圆形按键**：实心灰底 → 透明 + 1px hairline 描边；去掉位移、亮度滤镜与重阴影，hover / 按压改用淡色 state layer。
 - **四向箭头**：实心黑三角 → HA 原生 `ha-icon` 的 `mdi:chevron-*` 细线图标；顺带修正左右箭头在窄三栏触控板里被旋转定位挤出边框的问题。
