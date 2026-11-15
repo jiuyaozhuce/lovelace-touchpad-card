@@ -1,8 +1,16 @@
 /**
  * Touchpad Card - Lovelace Touchpad Card
- * Version: 1.6.1
+ * Version: 1.7.0
  * 
  * Changelog:
+ * v1.7.0 (2026-11-15):
+ *   - 新增阔屏 / 矮屏自适应布局：左按键 + 中央触控板 + 右按键三栏，
+ *     针对华为 Pura X Max 外屏 459x672vp、内屏 939x664vp 等宽而矮的屏幕
+ *   - 卡片主体高度绑定 dvh，底部按键始终在首屏可见，无需下滑（避免滑动误触）
+ *   - 竖版触控板高度改为随视口收敛，普通手机短屏也不会溢出
+ *   - 新增 layout 配置：auto（默认）/ portrait（强制竖版）/ wide（强制三栏）
+ *   - 通过 matchMedia + ResizeObserver 实时切换，开合屏 / 旋转无需刷新
+ *
  * v1.6.1 (2026-11-15):
  *   - 外观默认改为 auto，跟随 Home Assistant 明暗主题；直接引用
  *     --ha-card-background / --primary-text-color 等主题变量，切换主题即时生效
@@ -80,6 +88,7 @@ class TouchpadCard extends HTMLElement {
       remote_device: "",
       collapsed: true,
       appearance: "auto",
+      layout: "auto",
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -132,6 +141,7 @@ class TouchpadCard extends HTMLElement {
     this._bottomDock = "right";
     this._orientationEnabled = false;
     this._lastRenderKey = "";
+    this._wideLayout = this._computeWideLayout();
     this.render(true);
   }
 
@@ -152,6 +162,17 @@ class TouchpadCard extends HTMLElement {
     this.addEventListener("pointercancel", this._handlePointerCancel);
     this.addEventListener("contextmenu", this._preventContextMenu);
     this._handleOrientation = this._handleOrientation.bind(this);
+    if (typeof window.matchMedia === "function") {
+      this._layoutMedia = window.matchMedia("(min-aspect-ratio: 3/5), (max-height: 760px)");
+      this._onLayoutChange = () => this._syncLayout();
+      if (this._layoutMedia.addEventListener) {
+        this._layoutMedia.addEventListener("change", this._onLayoutChange);
+      }
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      this._layoutObserver = new ResizeObserver(() => this._syncLayout());
+      this._layoutObserver.observe(this);
+    }
   }
 
   disconnectedCallback() {
@@ -164,6 +185,13 @@ class TouchpadCard extends HTMLElement {
     window.removeEventListener("deviceorientation", this._handleOrientation);
     window.clearTimeout(this._foldedTemplateTimer);
     window.clearTimeout(this._feedbackTimer);
+    if (this._layoutMedia && this._onLayoutChange && this._layoutMedia.removeEventListener) {
+      this._layoutMedia.removeEventListener("change", this._onLayoutChange);
+    }
+    if (this._layoutObserver) {
+      this._layoutObserver.disconnect();
+      this._layoutObserver = null;
+    }
     this._connected = false;
     this._orientationEnabled = false;
     this._lastRenderKey = "";
@@ -664,6 +692,31 @@ class TouchpadCard extends HTMLElement {
     return `{% set entity = '${entity}' %}\n${template}`;
   }
 
+  _computeWideLayout() {
+    const forced = String(this.config?.layout ?? "auto").toLowerCase();
+    if (forced === "wide") return true;
+    if (forced === "portrait") return false;
+    const vw = window.innerWidth || 390;
+    const vh = window.innerHeight || 844;
+    const cardW = this.getBoundingClientRect().width || vw;
+    if (cardW < 420) return false;
+    // Short viewport (Pura X Max outer 459x672 / unfolded 939x664, minus HA chrome).
+    const shortViewport = vh <= 760 && vw >= 380;
+    // Genuinely wide viewport (e.g. unfolded inner screen 939x664).
+    const wideViewport = vw >= 420 && vw / Math.max(vh, 1) >= 0.6;
+    // Card placed in a wide dashboard column on desktop.
+    const wideCard = cardW >= 560;
+    return shortViewport || wideViewport || wideCard;
+  }
+
+  _syncLayout() {
+    if (!this.config) return;
+    const wide = this._computeWideLayout();
+    if (wide === this._wideLayout) return;
+    this._wideLayout = wide;
+    this.render();
+  }
+
   _resolveDarkMode() {
     const mode = String(this.config?.appearance ?? "auto").toLowerCase();
     if (mode === "dark") return true;
@@ -704,6 +757,7 @@ class TouchpadCard extends HTMLElement {
       power_attributes: powerState?.attributes,
       is_powered_on: isPoweredOn,
       appearance: appearance,
+      layout: this._wideLayout ? "wide" : "portrait",
       dark_mode: darkMode,
       dock: this._bottomDock,
       menu_open: menuOpen,
@@ -735,7 +789,7 @@ class TouchpadCard extends HTMLElement {
       : circleSlot + circleSlot;
 
     this.innerHTML = `
-      <ha-card class="touchpad-root appearance-${appearance} theme-${darkMode ? "dark" : "light"}">
+      <ha-card class="touchpad-root appearance-${appearance} theme-${darkMode ? "dark" : "light"} layout-${this._wideLayout ? "wide" : "portrait"}">
         <div class="touchpad-card${this._folded ? " is-folded" : ""}" style="--brand-color: ${brandColor}">
           <div class="remote-head" data-toggle title="收起 / 展开">
             <button class="head-nav" title="${this._folded ? "展开" : "收起"}" aria-label="${this._folded ? "展开" : "收起"}">
@@ -1038,10 +1092,10 @@ class TouchpadCard extends HTMLElement {
           .touchpad-area {
             position: relative;
             width: 100%;
-            aspect-ratio: 5 / 6;
-            min-height: 280px;
-            max-height: 620px;
-            margin-top: clamp(16px, 4%, 34px);
+            height: clamp(220px, 44vh, 420px);
+            height: clamp(220px, 44dvh, 420px);
+            min-height: 0;
+            margin-top: clamp(14px, 3%, 28px);
             border-radius: 22px;
             background: var(--tc-pad);
             overflow: hidden;
@@ -1256,7 +1310,8 @@ class TouchpadCard extends HTMLElement {
               font-size: 16px;
             }
             .touchpad-area {
-              min-height: 240px;
+              height: clamp(200px, 40vh, 340px);
+              height: clamp(200px, 40dvh, 340px);
               border-radius: 18px;
             }
             .hint-text {
@@ -1282,6 +1337,108 @@ class TouchpadCard extends HTMLElement {
             .remote-button ha-icon {
               --mdc-icon-size: 24px;
             }
+          }
+          /* ---------- 阔屏 / 矮屏三栏布局（v1.7.0） ----------
+             左：电源 + 音量±  中：大触控板  右：主页 + 返回 + 菜单
+             高度绑定 dvh，底部按键始终在首屏内，无需下滑 */
+          ha-card.touchpad-root.layout-wide .touchpad-card {
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: clamp(88px, 19%, 150px) minmax(0, 1fr) clamp(88px, 19%, 150px);
+            grid-template-rows: auto minmax(0, 1fr);
+            column-gap: 12px;
+            row-gap: 10px;
+            height: clamp(340px, 68vh, 500px);
+            height: clamp(340px, 68dvh, 500px);
+            padding: 12px 14px 14px;
+            align-items: stretch;
+          }
+          ha-card.touchpad-root.layout-wide .touchpad-card.is-folded {
+            display: block;
+            height: auto;
+            padding: 10px 16px;
+          }
+          ha-card.touchpad-root.layout-wide .remote-head {
+            grid-column: 1 / -1;
+            grid-row: 1;
+            min-height: 40px;
+          }
+          ha-card.touchpad-root.layout-wide .top-controls,
+          ha-card.touchpad-root.layout-wide .bottom-controls {
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-evenly;
+            gap: 6px;
+            margin-top: 0;
+          }
+          ha-card.touchpad-root.layout-wide .top-controls { grid-column: 1; }
+          ha-card.touchpad-root.layout-wide .bottom-controls { grid-column: 3; }
+          ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .nav-home,
+          ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .nav-menu,
+          ha-card.touchpad-root.layout-wide .bottom-controls.dock-left .pill-btn {
+            order: 0;
+          }
+          ha-card.touchpad-root.layout-wide .top-controls .circle-btn,
+          ha-card.touchpad-root.layout-wide .top-controls .circle-slot,
+          ha-card.touchpad-root.layout-wide .bottom-controls .circle-btn {
+            width: clamp(48px, 76%, 64px);
+            max-width: 64px;
+            min-width: 0;
+            flex: 0 0 auto;
+          }
+          ha-card.touchpad-root.layout-wide .top-controls .circle-slot {
+            height: clamp(48px, 76%, 64px);
+          }
+          ha-card.touchpad-root.layout-wide .bottom-controls .pill-btn {
+            width: clamp(48px, 76%, 64px);
+            min-width: 0;
+            height: 48px;
+            min-height: 48px;
+            flex: 0 0 auto;
+          }
+          ha-card.touchpad-root.layout-wide .remote-button ha-icon {
+            --mdc-icon-size: 24px;
+          }
+          ha-card.touchpad-root.layout-wide .touchpad-area {
+            grid-column: 2;
+            grid-row: 2;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            max-height: none;
+            aspect-ratio: auto;
+            margin-top: 0;
+            border-radius: 18px;
+          }
+          ha-card.touchpad-root.layout-wide .hint-text {
+            top: auto;
+            bottom: 12px;
+            transform: translateX(-50%);
+            font-size: 11px;
+          }
+          ha-card.touchpad-root.layout-wide .arrow {
+            width: 40px;
+            height: 68px;
+          }
+          ha-card.touchpad-root.layout-wide .arrow::before {
+            width: 11px;
+            height: 30px;
+          }
+          ha-card.touchpad-root.layout-wide .arrow::after {
+            border-left-width: 20px;
+            border-right-width: 20px;
+            border-bottom-width: 32px;
+          }
+          ha-card.touchpad-root.layout-wide .arrow.up { margin-left: -20px; }
+          ha-card.touchpad-root.layout-wide .arrow.down { margin-left: -20px; }
+          ha-card.touchpad-root.layout-wide .arrow.left { left: 2%; margin-top: -34px; }
+          ha-card.touchpad-root.layout-wide .arrow.right { right: 2%; margin-top: -34px; }
+          ha-card.touchpad-root.layout-wide .more-menu {
+            top: 52px;
+            right: 12px;
+            width: min(240px, calc(100% - 24px));
           }
         </style>
       </ha-card>
@@ -1370,6 +1527,7 @@ class TouchpadCardEditor extends HTMLElement {
       folded_template: "",
       collapsed: true,
       appearance: "auto",
+      layout: "auto",
       hint_text: "滑动控制上下左右，点击确定",
       show_hint: true,
       show_more_menu: true,
@@ -1418,6 +1576,11 @@ class TouchpadCardEditor extends HTMLElement {
         { name: "folded_template", selector: { text: { multiline: true } } },
         { name: "collapsed", selector: { boolean: {} } },
         { name: "icon", selector: { icon: {} } },
+        { name: "layout", selector: { select: { options: [
+          { value: "auto", label: "自动（阔屏三栏 / 普通手机竖版，默认）" },
+          { value: "portrait", label: "强制竖版（参考图布局）" },
+          { value: "wide", label: "强制三栏宽屏布局" },
+        ] } } },
         { name: "appearance", selector: { select: { options: [
           { value: "auto", label: "跟随 HA 主题（默认）" },
           { value: "dark", label: "强制深色遥控器" },
@@ -1578,7 +1741,7 @@ class TouchpadCardEditor extends HTMLElement {
 
 
 console.info(
-  `%c Touchpad Card %c v1.6.1 `,
+  `%c Touchpad Card %c v1.7.0 `,
   `color: white; background: #03a9f4; padding: 3px 0; border-radius: 3px 0 0 3px;`,
   `color: white; background: #4caf50; padding: 3px 0; border-radius: 0 3px 3px 0;`
 );
